@@ -17,8 +17,16 @@
   overflow: hidden;
 }
 .nm-title {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
   font-size: clamp(11px, 6cqmin, 16px);
   color: var(--bm-text-2);
+}
+.nm-flag {
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
 }
 .nm-date {
   /* 10 个字符的日期要在窄容器里放得下,所以同时受宽度约束 */
@@ -55,7 +63,7 @@
 }
 /* 容器太矮时隐藏次要信息 */
 @container (max-height: 150px) {
-  .nm-title,
+  .nm-title-text,
   .nm-days,
   .nm-overdue {
     display: none;
