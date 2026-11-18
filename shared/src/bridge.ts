@@ -43,7 +43,7 @@ export interface Bridge {
 const params = () => new URLSearchParams(window.location.search);
 export const isMockMode = () => params().has('mock');
 
-async function loadRecords(tableId: string, fieldIds?: string[]): Promise<RawRecord[]> {
+export async function loadRecords(tableId: string, fieldIds?: string[]): Promise<RawRecord[]> {
   const table = await bitable.base.getTableById(tableId);
   const out: RawRecord[] = [];
   let pageToken: string | undefined;
