@@ -1,0 +1,221 @@
+.mp-root {
+  height: 100%;
+  container-type: size;
+  box-sizing: border-box;
+}
+.mp-card {
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(8px, 4cqmin, 20px) clamp(10px, 4cqw, 28px);
+  gap: clamp(2px, 2cqh, 10px);
+}
+.mp-empty {
+  align-items: center;
+  justify-content: center;
+}
+.mp-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mp-title {
+  font-size: clamp(12px, 5.5cqmin, 16px);
+  color: var(--bm-text-2);
+}
+.mp-percent {
+  font-size: clamp(20px, 11cqmin, 44px);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--bm-primary);
+  font-variant-numeric: tabular-nums;
+}
+.mp-percent.is-complete {
+  color: var(--bm-success);
+}
+.mp-hint,
+.mp-lane-empty {
+  font-size: clamp(12px, 6cqmin, 16px);
+  color: var(--bm-text-2);
+}
+.mp-lane-empty {
+  position: absolute;
+  inset: auto 0 0 0;
+  text-align: center;
+}
+
+/* 轨道区:进度条在正中,里程碑标签分别排在上、下两侧,避免挤在一起 */
+.mp-lane {
+  position: relative;
+  flex: 1;
+  min-height: 24px;
+  max-height: 200px;
+  /* 卡片很高时,轨道区居中而不是被拉伸 */
+  margin: auto 0;
+  width: 100%;
+}
+.mp-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: clamp(8px, 4cqmin, 14px);
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: var(--bm-track);
+  overflow: hidden;
+}
+.mp-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--bm-primary);
+  transition: width 0.4s ease;
+}
+.mp-fill.is-complete {
+  background: var(--bm-success);
+}
+
+.mp-ms {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+}
+.mp-dot {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: clamp(10px, 4.5cqmin, 16px);
+  height: clamp(10px, 4.5cqmin, 16px);
+  transform: translate(-50%, -50%) rotate(45deg);
+  border-radius: 3px;
+  box-sizing: border-box;
+  border: 2px solid var(--bm-primary);
+  background: var(--bm-surface);
+  z-index: 2;
+}
+/* 已完成:实心绿色;未完成:空心蓝边 */
+.mp-ms.is-done .mp-dot {
+  background: var(--bm-success);
+  border-color: var(--bm-surface);
+  box-shadow: 0 0 0 2px var(--bm-success);
+}
+.mp-ms-label {
+  position: absolute;
+  left: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 24cqw;
+  font-size: clamp(10px, 4.6cqmin, 13px);
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+}
+.mp-ms.is-up .mp-ms-label {
+  bottom: calc(50% + clamp(10px, 4.5cqmin, 16px));
+}
+.mp-ms.is-down .mp-ms-label {
+  top: calc(50% + clamp(10px, 4.5cqmin, 16px));
+}
+.mp-ms-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--bm-text);
+}
+.mp-ms.is-pending .mp-ms-name {
+  color: var(--bm-text-2);
+}
+.mp-ms-date {
+  color: var(--bm-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 悬浮提示 */
+.mp-tip {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translate(-50%, -150%);
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: #fff;
+  background: rgba(31, 35, 41, 0.92);
+  z-index: 10;
+  pointer-events: none;
+}
+:root[data-theme='dark'] .mp-tip {
+  background: rgba(240, 241, 242, 0.95);
+  color: #1f2329;
+}
+.mp-ms:hover .mp-tip {
+  display: flex;
+}
+.mp-ms {
+  pointer-events: none;
+}
+.mp-dot {
+  pointer-events: auto;
+}
+
+.mp-foot {
+  font-size: clamp(10px, 4.6cqmin, 13px);
+  color: var(--bm-text-2);
+  text-align: right;
+}
+
+/* 小尺寸(接近 2x2 格):只保留百分比、进度条和节点圆点 */
+@container (max-width: 280px) {
+  .mp-ms-label,
+  .mp-foot,
+  .mp-title {
+    display: none;
+  }
+  .mp-head {
+    justify-content: center;
+  }
+}
+@container (max-height: 150px) {
+  .mp-ms-label,
+  .mp-foot {
+    display: none;
+  }
+}
+
+/* ===== 配置表单里的额外控件 ===== */
+.bm-manual-card {
+  padding: 8px;
+  margin-bottom: 8px;
+  border: 1px solid var(--bm-border);
+  border-radius: 6px;
+}
+.bm-manual-card .bm-manual-row:last-child {
+  margin-bottom: 0;
+}
+.bm-date-input {
+  flex: 1;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--bm-border);
+  border-radius: 6px;
+  color: var(--bm-text);
+  background: transparent;
+  font: inherit;
+}
+.bm-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 14px;
+}

@@ -1,0 +1,15 @@
+{
+  "name": "base-milestone-plugins",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "飞书多维表格仪表盘插件:带里程碑的整体进度、下一个里程碑",
+  "workspaces": ["milestone-progress", "next-milestone"],
+  "scripts": {
+    "dev:progress": "npm run dev -w milestone-progress",
+    "dev:next": "npm run dev -w next-milestone",
+    "build": "npm run build -w milestone-progress && npm run build -w next-milestone",
+    "typecheck": "tsc -p milestone-progress --noEmit && tsc -p next-milestone --noEmit",
+    "test": "node --experimental-strip-types --test shared/test/*.test.ts"
+  }
+}

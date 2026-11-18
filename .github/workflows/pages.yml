@@ -1,0 +1,49 @@
+name: Deploy plugins to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      # 两个插件分别发布到 /progress/ 和 /next/,vite 的 base: './' 保证子路径下资源正常加载
+      - name: Assemble site
+        run: |
+          mkdir -p site
+          cp -r milestone-progress/dist site/progress
+          cp -r next-milestone/dist site/next
+          printf '<!doctype html><meta charset="utf-8"><title>Base milestone plugins</title><ul><li><a href="progress/">整体进度(带里程碑)</a></li><li><a href="next/">下一个里程碑</a></li></ul>' > site/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

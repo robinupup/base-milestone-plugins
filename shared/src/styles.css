@@ -1,0 +1,125 @@
+:root {
+  --bm-text: #1f2329;
+  --bm-text-2: #646a73;
+  --bm-track: #e8ebf0;
+  --bm-primary: #3370ff;
+  --bm-success: #00b42a;
+  --bm-warn: #ff8800;
+  --bm-danger: #f54a45;
+  --bm-border: #dee0e3;
+  --bm-surface: #ffffff;
+}
+:root[data-theme='dark'] {
+  --bm-text: #f0f1f2;
+  --bm-text-2: #a6abb3;
+  --bm-track: #3a3f47;
+  --bm-primary: #4c88ff;
+  --bm-success: #2dc26b;
+  --bm-warn: #ff9a2e;
+  --bm-danger: #ff6a66;
+  --bm-border: #4a4f57;
+  --bm-surface: #1b1d21;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+body {
+  color: var(--bm-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Tahoma, 'PingFang SC', 'Microsoft Yahei',
+    Arial, 'Hiragino Sans GB', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
+}
+:root[lang='ja'] body {
+  font-family: 'ヒラギノ角ゴ Pro W3', 'Hiragino Kaku Gothic Pro', 'Yu Gothic UI', '游ゴシック体',
+    'Noto Sans Japanese', 'Microsoft Yahei UI', 'ＭＳ Ｐゴシック', Arial, sans-serif;
+}
+
+/* ===== 配置布局(官方规范) ===== */
+.config-widget-dialog-container {
+  display: flex;
+  height: 100%;
+  position: relative;
+}
+.config-widget-dialog-preview {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+.config-widget-dialog-settings {
+  border-left: 1px solid var(--bm-border);
+  flex: 0 0 340px;
+  width: 340px;
+  height: 100%;
+  box-sizing: border-box;
+  position: relative;
+  padding-bottom: 70px;
+}
+.bm-settings-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.bm-settings-footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 16px;
+  border-top: 1px solid var(--bm-border);
+  background: var(--bm-surface);
+  box-sizing: border-box;
+}
+.bm-form-item {
+  margin-bottom: 16px;
+}
+.bm-form-label {
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: var(--bm-text);
+}
+.bm-form-hint {
+  font-size: 12px;
+  margin-top: 4px;
+  color: var(--bm-text-2);
+}
+.bm-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.bm-type-badge {
+  display: inline-block;
+  min-width: 22px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--bm-text-2);
+}
+.bm-manual-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+/* ===== 通用状态 ===== */
+.bm-center {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bm-text-2);
+  font-size: 14px;
+  text-align: center;
+  padding: 12px;
+  box-sizing: border-box;
+}

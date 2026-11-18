@@ -1,0 +1,63 @@
+/* 用容器查询单位随仪表盘格子大小缩放,最小 2x2 也能完整显示 */
+.nm-root {
+  height: 100%;
+  container-type: size;
+  box-sizing: border-box;
+}
+.nm-card {
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(2px, 2.5cqh, 10px);
+  padding: 4cqmin;
+  text-align: center;
+  overflow: hidden;
+}
+.nm-title {
+  font-size: clamp(11px, 6cqmin, 16px);
+  color: var(--bm-text-2);
+}
+.nm-date {
+  /* 10 个字符的日期要在窄容器里放得下,所以同时受宽度约束 */
+  font-size: clamp(18px, min(15cqmin, 11cqw), 64px);
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  color: var(--bm-primary);
+}
+.nm-today .nm-date,
+.nm-today .nm-days {
+  color: var(--bm-warn);
+}
+.nm-name {
+  max-width: 100%;
+  font-size: clamp(12px, 7.5cqmin, 22px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nm-days {
+  font-size: clamp(11px, 6cqmin, 16px);
+  color: var(--bm-text-2);
+}
+.nm-none,
+.nm-hint {
+  font-size: clamp(12px, 7cqmin, 18px);
+  color: var(--bm-text-2);
+}
+.nm-overdue {
+  margin-top: 2px;
+  font-size: clamp(10px, 5cqmin, 13px);
+  color: var(--bm-danger);
+}
+/* 容器太矮时隐藏次要信息 */
+@container (max-height: 150px) {
+  .nm-title,
+  .nm-days,
+  .nm-overdue {
+    display: none;
+  }
+}
