@@ -34,7 +34,7 @@ export function App() {
   const card = (
     <NextMilestoneCard
       result={result}
-      configured={api.configured && config.flagValues.length > 0}
+      configured={api.configured && (config.flagValues.length > 0 || !!config.flagKeyword?.trim())}
       loading={api.dataLoading}
     />
   );

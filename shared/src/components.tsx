@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Button, Select } from '@douyinfe/semi-ui';
+import { Button, Input, Select } from '@douyinfe/semi-ui';
 import type { Bridge, FieldInfo, TableInfo } from './bridge';
-import { buildValuesCondition } from './conditions';
 import { t } from './i18n';
-import { itemText } from './milestones';
 import type { SourceConfig } from './milestones';
 import { DATE_TYPES, FLAG_TYPES, NAME_TYPES, STATUS_TYPES } from './usePlugin';
 import type { PluginApi } from './usePlugin';
@@ -109,16 +107,8 @@ export function useFieldValues(bridge: Bridge | null, tableId?: string, fieldId?
     }
     let cancelled = false;
     bridge
-      .getPreviewData(buildValuesCondition(tableId, fieldId))
-      .then((rows) => {
-        if (cancelled) return;
-        const set = new Set<string>();
-        for (const r of rows) {
-          const s = itemText(r[0]);
-          if (s) set.add(s);
-        }
-        setValues([...set]);
-      })
+      .getFieldValues(tableId, fieldId)
+      .then((list) => !cancelled && setValues(list))
       .catch(() => !cancelled && setValues([]));
     return () => {
       cancelled = true;
@@ -208,15 +198,25 @@ export function SourceForm<C extends SourceConfig>({
           fields={fields}
           types={FLAG_TYPES}
           value={config.flagFieldId}
-          onChange={(id) => upd({ flagFieldId: id, flagValues: [] })}
+          onChange={(id) => upd({ flagFieldId: id, flagValues: [], flagKeyword: '' })}
         />
       </FormItem>
       {config.flagFieldId ? (
         <FormItem label={t('field.flagValues')}>
           <ValueSelect
-            options={flagValues}
+            options={flagValues.length > 30 ? [] : flagValues}
             value={config.flagValues}
             onChange={(v) => upd({ flagValues: v })}
+          />
+        </FormItem>
+      ) : null}
+      {config.flagFieldId ? (
+        <FormItem label={t('field.flagKeyword')} hint={t('field.hintFlagKeyword')}>
+          <Input
+            value={config.flagKeyword ?? ''}
+            placeholder={t('field.flagKeywordPlaceholder')}
+            onChange={(v) => upd({ flagKeyword: v })}
+            showClear
           />
         </FormItem>
       ) : null}

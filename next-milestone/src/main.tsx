@@ -5,6 +5,9 @@ import '@semi-bot/semi-theme-feishu-dashboard/semi.min.css';
 import '@shared/styles.css';
 import './styles.css';
 import { App } from './App';
+import { installDevLog } from '@shared/devlog';
+
+installDevLog();
 
 document.documentElement.lang = new URLSearchParams(window.location.search).get('lang') ?? navigator.language;
 

@@ -16,6 +16,8 @@ export interface SourceConfig {
   flagFieldId?: string;
   /** 视为"里程碑"的标记值(文本) */
   flagValues: string[];
+  /** 标记字段文本包含任一关键词(逗号分隔)也视为里程碑,适合把里程碑写在任务名里的表,如"必保时间点" */
+  flagKeyword?: string;
   nameFieldId?: string;
   dateFieldId?: string;
 }
@@ -130,9 +132,16 @@ export function parseSource(data: DataRows | null | undefined, c: SourceConfig):
   const countCol = fieldIds.length;
   const doneSet = new Set(c.doneValues);
   const flagSet = new Set(c.flagValues);
+  const keywords = (c.flagKeyword ?? '')
+    .split(/[,，;；]/)
+    .map((k) => k.trim())
+    .filter(Boolean);
   const seen = new Set<string>();
 
   data.forEach((row, i) => {
+    // 仪表盘接口返回的第一行是表头(计数列值为 "Bitable_Dashboard_Count"),跳过
+    const rawCnt = row[countCol]?.value;
+    if (typeof rawCnt === 'string' && !/^\d+$/.test(rawCnt)) return;
     const cnt = Number(row[countCol]?.value);
     const count = Number.isFinite(cnt) && cnt > 0 ? cnt : 1;
     const isDone = index.status !== undefined && doneSet.has(itemText(row[index.status]));
@@ -141,7 +150,8 @@ export function parseSource(data: DataRows | null | undefined, c: SourceConfig):
     if (isDone) out.done += count;
 
     if (index.flag === undefined || index.date === undefined) return;
-    if (!flagSet.has(itemText(row[index.flag]))) return;
+    const flagText = itemText(row[index.flag]);
+    if (!flagSet.has(flagText) && !keywords.some((k) => flagText.includes(k))) return;
     const date = parseDateItem(row[index.date]);
     if (!date) return;
     const name = index.name !== undefined ? itemText(row[index.name]) : '';

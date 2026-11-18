@@ -106,6 +106,13 @@ export function createMockBridge(): Bridge {
       const cond = saved?.dataConditions?.[0];
       return delay(cond ? aggregate(recs, cond) : []);
     },
+    getRows: (_t, fieldIds) =>
+      delay(aggregate(recs, { tableId: _t, groups: fieldIds.map((fieldId) => ({ fieldId })) } as unknown as IDataCondition)),
+    getFieldValues: async (_t, fieldId) => {
+      const rows = aggregate(recs, { tableId: _t, groups: [{ fieldId }] } as unknown as IDataCondition);
+      return delay([...new Set(rows.map((r) => String(r[0].text ?? '')).filter(Boolean))]);
+    },
+    onRecordsChange: () => () => {},
     getConfig: () => delay(saved ?? { dataConditions: [], customConfig: undefined }),
     saveConfig: async (c) => {
       saved = c;

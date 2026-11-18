@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { IConfig, IData, IDataCondition } from '@lark-base-open/js-sdk';
+import type { IConfig, IDataCondition } from '@lark-base-open/js-sdk';
 import { createBridge } from './bridge';
+import { dlog } from './devlog';
 import type { Bridge, FieldInfo, PluginState, TableInfo, ThemeMode } from './bridge';
 import { buildLayout, COLUMN_ORDER } from './milestones';
-import type { ColumnKey, SourceConfig } from './milestones';
+import type { ColumnKey, DataRows, SourceConfig } from './milestones';
 
 // SDK FieldType 数值
 export const FT = {
@@ -44,20 +45,60 @@ export function autoPick<C extends SourceConfig>(c: C, fields: FieldInfo[], opts
     if (!next[k] && f) next[k] = f.id;
     if (next[k]) used.push(next[k] as string);
   };
-  take('flag', findField(fields, FLAG_TYPES, [/里程碑|milestone/i, /类型|type/i]));
+  take('flag', findField(fields, FLAG_TYPES, [/里程碑|milestone/i]));
   take(
     'date',
-    findField(fields, DATE_TYPES, [/结束|截止|到期|deadline|end|due/i]) ??
+    findField(fields, DATE_TYPES, [/完成时间|结束|截止|到期|deadline|end|due/i]) ??
       fields.find((f) => f.type === FT.DateTime),
   );
   take(
     'name',
-    findField(fields, NAME_TYPES, [/名称|标题|任务|name|title/i], used) ??
+    findField(fields, [FT.Text], [/名称|标题|任务项|任务|name|title/i], used) ??
+      findField(fields, NAME_TYPES, [/名称|标题|name|title/i], used) ??
       fields.find((f) => f.type === FT.Text && !used.includes(f.id)),
   );
-  if (opts.status) take('status', findField(fields, STATUS_TYPES, [/状态|进度|status|state/i], used));
+  if (opts.status) take('status', findField(fields, STATUS_TYPES, [/状态|进度|进展|status|state/i], used));
   return next;
 }
+
+const MILESTONE_KEYWORDS = ['必保时间点', '里程碑', 'Milestone', '🌟'];
+const DONE_RE = /完成|通过|done|finish|complete|closed|resolved/i;
+const NOT_DONE_RE = /未|待|不|没|not|un|wip/i;
+const FLAG_YES_RE = /^(是|true|yes|y|✓|✔|里程碑|milestone)$/i;
+
+/**
+ * 根据真实数据补全配置:
+ * - 没有"里程碑"字段时,看任务名里是否带"必保时间点/里程碑/🌟"这类标记,有就用名称字段+关键词;
+ * - 标记字段已选但没选值时,挑"是/里程碑"之类的值;
+ * - 状态字段已选但没选完成值时,挑"完成/通过"之类的值。
+ */
+export async function smartFill(b: Bridge, c: SourceConfig): Promise<Partial<SourceConfig>> {
+  const patch: Partial<SourceConfig> = {};
+  const tableId = c.tableId;
+  if (!tableId) return patch;
+  if (!c.flagFieldId && c.nameFieldId) {
+    const vals = await b.getFieldValues(tableId, c.nameFieldId);
+    const kw = MILESTONE_KEYWORDS.find((k) => vals.some((v) => v.includes(k)));
+    if (kw) {
+      patch.flagFieldId = c.nameFieldId;
+      patch.flagKeyword = kw;
+    }
+  } else if (c.flagFieldId && !c.flagValues.length && !c.flagKeyword) {
+    const vals = await b.getFieldValues(tableId, c.flagFieldId);
+    const hit = vals.filter((v) => FLAG_YES_RE.test(v) || /里程碑|milestone/i.test(v));
+    if (hit.length) patch.flagValues = hit;
+  }
+  if (c.statusFieldId && !c.doneValues.length) {
+    const vals = await b.getFieldValues(tableId, c.statusFieldId);
+    const hit = vals.filter((v) => DONE_RE.test(v) && !NOT_DONE_RE.test(v));
+    if (hit.length) patch.doneValues = hit;
+  }
+  return patch;
+}
+
+/** 有多张表时,优先选名字像"项目/任务"的表 */
+const pickTable = (list: TableInfo[]) =>
+  list.find((t) => /项目|任务|事件|计划|task|project|plan/i.test(t.name)) ?? list[0];
 
 interface Options<C extends SourceConfig> {
   defaults: C;
@@ -79,7 +120,7 @@ export interface PluginApi<C extends SourceConfig> {
   setTable(tableId: string): void;
   tables: TableInfo[];
   fields: FieldInfo[];
-  data: IData | null;
+  data: DataRows | null;
   dataLoading: boolean;
   save(): Promise<boolean>;
   saving: boolean;
@@ -99,12 +140,21 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
   const [config, setConfig] = useState<C>(opts.defaults);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [fields, setFields] = useState<FieldInfo[]>([]);
-  const [data, setData] = useState<IData | null>(null);
+  const [data, setData] = useState<DataRows | null>(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>('LIGHT');
   const pickedFor = useRef<string | null>(null);
+  const configRef = useRef(config);
+  configRef.current = config;
+  const cancelledAll = useRef(false);
+  useEffect(() => {
+    cancelledAll.current = false;
+    return () => {
+      cancelledAll.current = true;
+    };
+  }, []);
 
   const state: PluginState = bridge?.state ?? 'View';
   const isConfig = state === 'Create' || state === 'Config';
@@ -131,17 +181,25 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
     let cancelled = false;
     (async () => {
       try {
+        dlog('init: createBridge');
         const b = await createBridge();
+        dlog('init: bridge ok, state=', b.state);
         if (cancelled) return;
         setBridge(b);
-        const th = await b.getTheme().catch(() => 'LIGHT' as ThemeMode);
+        const th = await b.getTheme().catch((e) => {
+          dlog('getTheme failed', e);
+          return 'LIGHT' as ThemeMode;
+        });
+        dlog('init: theme=', th);
         setTheme(b.state === 'FullScreen' ? 'DARK' : th);
         off.push(b.onThemeChange((x) => setTheme(b.state === 'FullScreen' ? 'DARK' : x)));
 
         if (b.state === 'Create') {
           const list = await b.getTables();
+          dlog('tables', list);
           setTables(list);
-          if (list[0]) setConfig((c) => ({ ...c, tableId: list[0].id }));
+          const target = pickTable(list);
+          if (target) setConfig((c) => ({ ...c, tableId: target.id }));
         } else {
           const loaded = await loadConfig(b);
           setConfig(loaded);
@@ -151,25 +209,50 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
             setTables(await b.getTables());
           }
           if (b.state === 'View' || b.state === 'FullScreen') {
+            let current = loaded;
+            let offRecords: () => void = () => {};
+            let timer: ReturnType<typeof setTimeout> | undefined;
             const reload = async () => {
               try {
-                setData(await b.getData());
+                const { fieldIds } = buildLayout(current);
+                if (!current.tableId || !fieldIds.length) {
+                  setData([]);
+                  return;
+                }
+                setData(await b.getRows(current.tableId, fieldIds));
               } catch (e) {
                 setError(String((e as Error)?.message ?? e));
               }
             };
+            const reloadSoon = () => {
+              clearTimeout(timer);
+              timer = setTimeout(reload, 300);
+            };
+            const subscribe = () => {
+              offRecords();
+              if (current.tableId) offRecords = b.onRecordsChange(current.tableId, reloadSoon);
+            };
             await reload();
-            off.push(b.onDataChange(reload));
+            subscribe();
+            off.push(b.onDataChange(reloadSoon));
             off.push(
               b.onConfigChange(async () => {
-                setConfig(await loadConfig(b));
+                current = await loadConfig(b);
+                setConfig(current);
+                subscribe();
                 await reload();
               }),
             );
+            off.push(() => {
+              clearTimeout(timer);
+              offRecords();
+            });
           }
         }
+        dlog('init: ready');
         setReady(true);
       } catch (e) {
+        dlog('init: error', e);
         setError(String((e as Error)?.message ?? e));
       }
     })();
@@ -194,10 +277,20 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
     let cancelled = false;
     bridge.getFields(config.tableId).then((list) => {
       if (cancelled) return;
+      dlog('fields of', config.tableId, list);
       setFields(list);
       if (pickedFor.current !== config.tableId) {
         pickedFor.current = config.tableId ?? null;
-        setConfig((c) => autoPick(c, list, { status: optsRef.current.autoPickStatus !== false }));
+        const picked = autoPick(configRef.current, list, { status: optsRef.current.autoPickStatus !== false });
+        setConfig(picked);
+        // 再根据真实数据补全:里程碑标记、已完成值
+        smartFill(bridge, picked)
+          .then((patch) => {
+            if (cancelledAll.current || !Object.keys(patch).length) return;
+            dlog('smartFill', patch);
+            setConfig((c) => (c.tableId === picked.tableId ? { ...c, ...patch } : c));
+          })
+          .catch((e) => dlog('smartFill error', e));
       }
     });
     return () => {
@@ -220,7 +313,7 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
     setDataLoading(true);
     const timer = setTimeout(() => {
       bridge
-        .getPreviewData(conditions[0])
+        .getRows(config.tableId as string, buildLayout(config).fieldIds)
         .then((d) => !cancelled && setData(d))
         .catch((e) => !cancelled && setError(String(e?.message ?? e)))
         .finally(() => !cancelled && setDataLoading(false));
@@ -254,6 +347,7 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
       for (const key of COLUMN_ORDER) (next as SourceConfig)[`${key}FieldId` as const] = undefined;
       next.doneValues = [];
       next.flagValues = [];
+      next.flagKeyword = '';
       return next;
     });
   }, []);

@@ -5,3 +5,4 @@ export * from './i18n';
 export * from './milestones';
 export * from './usePlugin';
 export { useToday } from './useToday';
+export * from './records';
