@@ -77,70 +77,52 @@
   background: var(--bm-success);
 }
 
+.mp-track {
+  top: 64%;
+}
+/* 里程碑小红旗:旗杆底部落在进度条上边缘,文字只在悬浮时显示 */
 .mp-ms {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  bottom: calc(36% + clamp(8px, 4cqmin, 14px) / 2 - 1px);
   width: 0;
+  height: 0;
 }
-.mp-dot {
+.mp-flag {
   position: absolute;
-  left: 0;
-  top: 50%;
-  width: clamp(10px, 4.5cqmin, 16px);
-  height: clamp(10px, 4.5cqmin, 16px);
-  transform: translate(-50%, -50%) rotate(45deg);
-  border-radius: 3px;
-  box-sizing: border-box;
-  border: 2px solid var(--bm-primary);
-  background: var(--bm-surface);
-  z-index: 2;
+  left: calc(clamp(15px, 6.5cqmin, 24px) * -0.16);
+  bottom: 0;
+  width: clamp(15px, 6.5cqmin, 24px);
+  height: clamp(17px, 7.3cqmin, 27px);
+  overflow: visible;
+  pointer-events: auto;
+  cursor: default;
 }
-/* 已完成:实心绿色;未完成:空心蓝边 */
-.mp-ms.is-done .mp-dot {
-  background: var(--bm-success);
-  border-color: var(--bm-surface);
-  box-shadow: 0 0 0 2px var(--bm-success);
+.mp-flag-pole {
+  stroke: var(--bm-text-2);
 }
-.mp-ms-label {
-  position: absolute;
-  left: 0;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  max-width: 24cqw;
-  font-size: clamp(10px, 4.6cqmin, 13px);
-  line-height: 1.25;
-  text-align: center;
-  white-space: nowrap;
+.mp-flag-cloth {
+  fill: #f54a45;
 }
-.mp-ms.is-up .mp-ms-label {
-  bottom: calc(50% + clamp(10px, 4.5cqmin, 16px));
-}
-.mp-ms.is-down .mp-ms-label {
-  top: calc(50% + clamp(10px, 4.5cqmin, 16px));
-}
-.mp-ms-name {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--bm-text);
-}
-.mp-ms.is-pending .mp-ms-name {
-  color: var(--bm-text-2);
+.mp-ms.is-done .mp-flag-cloth {
+  fill: var(--bm-success);
 }
 .mp-ms-date {
+  position: absolute;
+  left: 0;
+  top: calc(clamp(8px, 4cqmin, 14px) + 6px);
+  transform: translateX(-50%);
+  font-size: clamp(9px, 4cqmin, 11px);
   color: var(--bm-text-2);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* 悬浮提示 */
 .mp-tip {
   position: absolute;
   left: 0;
-  top: 50%;
-  transform: translate(-50%, -150%);
+  bottom: calc(clamp(17px, 7.3cqmin, 27px) + 6px);
+  transform: translateX(-50%);
   display: none;
   flex-direction: column;
   gap: 2px;
@@ -149,23 +131,25 @@
   font-size: 12px;
   line-height: 1.4;
   white-space: nowrap;
+  max-width: 260px;
   color: #fff;
   background: rgba(31, 35, 41, 0.92);
   z-index: 10;
   pointer-events: none;
 }
+.mp-tip b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 :root[data-theme='dark'] .mp-tip {
   background: rgba(240, 241, 242, 0.95);
   color: #1f2329;
 }
+.mp-ms:hover {
+  z-index: 20;
+}
 .mp-ms:hover .mp-tip {
   display: flex;
-}
-.mp-ms {
-  pointer-events: none;
-}
-.mp-dot {
-  pointer-events: auto;
 }
 
 .mp-foot {
@@ -176,7 +160,7 @@
 
 /* 小尺寸(接近 2x2 格):只保留百分比、进度条和节点圆点 */
 @container (max-width: 280px) {
-  .mp-ms-label,
+  .mp-ms-date,
   .mp-foot,
   .mp-title {
     display: none;
@@ -186,7 +170,7 @@
   }
 }
 @container (max-height: 150px) {
-  .mp-ms-label,
+  .mp-ms-date,
   .mp-foot {
     display: none;
   }

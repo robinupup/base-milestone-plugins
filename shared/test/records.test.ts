@@ -41,6 +41,7 @@ test('记录 → 行 → parseSource:关键词里程碑 + 完成率', () => {
   assert.equal(out.done, 1);
   assert.equal(out.milestones.length, 1);
   assert.equal(out.milestones[0].dateText, '2027-03-15');
+  assert.equal(out.milestones[0].name, '【验收】东莞');
   assert.equal(out.milestones[0].done, true);
 });
 

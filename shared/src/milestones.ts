@@ -113,6 +113,14 @@ export const itemText = (item?: DataItem | null): string => {
   return item.value === null || item.value === undefined ? '' : String(item.value).trim();
 };
 
+/** 名称里的标记关键词和装饰星标只是用来识别里程碑的,展示时去掉 */
+export function cleanMilestoneName(name: string, keywords: string[]): string {
+  let out = name;
+  for (const k of keywords) out = out.split(k).join(' ');
+  out = out.replace(/[🌟⭐★☆]/gu, ' ').replace(/\s+/g, ' ').trim();
+  return out || name;
+}
+
 export interface ParsedSource {
   /** 记录总数 */
   total: number;
@@ -154,7 +162,8 @@ export function parseSource(data: DataRows | null | undefined, c: SourceConfig):
     if (!flagSet.has(flagText) && !keywords.some((k) => flagText.includes(k))) return;
     const date = parseDateItem(row[index.date]);
     if (!date) return;
-    const name = index.name !== undefined ? itemText(row[index.name]) : '';
+    let name = index.name !== undefined ? itemText(row[index.name]) : '';
+    if (keywords.length && keywords.some((k) => name.includes(k))) name = cleanMilestoneName(name, keywords);
     const key = `${name}|${date.getTime()}|${isDone}`;
     if (seen.has(key)) return;
     seen.add(key);

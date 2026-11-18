@@ -27,7 +27,7 @@ const defaults: ProgressConfig = {
   flagValues: [],
   manual: [],
   showPercent: true,
-  showDates: true,
+  showDates: false,
 };
 
 export function App() {

@@ -362,7 +362,9 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
         dataConditions: optsRef.current.buildConditions(config),
         customConfig: { ...config, __cols: cols } as unknown as Record<string, unknown>,
       };
+      dlog('save: start');
       const ok = await bridge.saveConfig(payload);
+      dlog('save: result', ok);
       setSaved(ok);
       return ok;
     } finally {
