@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "upload": "npm run build && opdev upload ./dist"
+    "upload": "npm run build && opdev upload ./dist -t Block -v ${npm_package_version:-0.0.1} -d \"update\""
   },
   "dependencies": {
     "@lark-opdev/block-bitable-api": "^0.1.2"
