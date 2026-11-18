@@ -7,7 +7,8 @@
   "workspaces": [
     "milestone-progress",
     "next-milestone",
-    "dependency-flow"
+    "dependency-flow",
+    "dependency-flow-view/view"
   ],
   "scripts": {
     "dev:progress": "npm run dev -w milestone-progress",
