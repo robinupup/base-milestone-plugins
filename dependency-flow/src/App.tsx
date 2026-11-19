@@ -13,7 +13,7 @@ import { createHost } from './host.ts';
 import type { Theme } from './host.ts';
 import { layoutGraph } from './layout.ts';
 import { createNudger } from './nudge.ts';
-import { canNudge, isMine, modeFromViewName, nudgeWaitMs, restrictToOwner } from './policy.ts';
+import { canNudge, isMine, kickTargets, modeFromViewName, nudgeWaitMs, restrictToOwner } from './policy.ts';
 import type { Access, NudgeLog } from './policy.ts';
 import { SettingsForm } from './SettingsForm.tsx';
 import { TaskList } from './TaskList.tsx';
@@ -60,6 +60,8 @@ export function App() {
   const [logs, setLogs] = useState<NudgeLog[]>([]);
   const [nudgeBusy, setNudgeBusy] = useState(false);
   const [nudgeNotice, setNudgeNotice] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [kickBusy, setKickBusy] = useState(false);
+  const [kickNotice, setKickNotice] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [, setClock] = useState(0);
   const effAccess = useMemo<Access>(
     // 仪表盘的创建/配置界面是在编辑组件,不做权限过滤
@@ -186,6 +188,11 @@ export function App() {
   const recordById = useMemo(() => new Map((records ?? []).map((r) => [r.recordId ?? '', r])), [records]);
   const selected = useMemo(() => graph.tasks.find((t) => t.id === selectedId) ?? null, [graph, selectedId]);
   const nudgeAllowed = !!selected && canNudge(selected, graph, effAccess);
+  const kickList = useMemo(
+    () => (selected ? kickTargets(selected, graph, effAccess.userId) : []),
+    [selected, graph, effAccess.userId],
+  );
+  const kickable = !!selected && isMine(selected, effAccess.userId);
   const layout = useMemo(() => layoutGraph(graph.tasks, graph.edges), [graph]);
   const cycleKeys = useMemo(() => new Set(graph.cycleEdges.map((e) => `${e.from}>${e.to}`)), [graph]);
 
@@ -197,7 +204,8 @@ export function App() {
   // 打开可催办的任务时,读一次催办记录用来判断冷却;冷却中每 30 秒刷新一次倒计时
   useEffect(() => {
     setNudgeNotice(null);
-    if (!selectedId || !nudgeAllowed) return;
+    setKickNotice(null);
+    if (!selectedId || !(nudgeAllowed || kickable)) return;
     let dead = false;
     nudger
       .history()
@@ -208,7 +216,54 @@ export function App() {
       dead = true;
       clearInterval(timer);
     };
-  }, [selectedId, nudgeAllowed]);
+  }, [selectedId, nudgeAllowed, kickable]);
+
+  const now = Date.now();
+  const kickReady = kickList.filter((t) => nudgeWaitMs(logs, t.id, effAccess.userId, now) === 0);
+  const kickWait = kickList.length
+    ? Math.min(...kickList.map((t) => nudgeWaitMs(logs, t.id, effAccess.userId, now)))
+    : 0;
+
+  const kickAll = useCallback(async () => {
+    if (!selected) return;
+    setKickBusy(true);
+    setKickNotice(null);
+    try {
+      const ok = await nudger.check();
+      if (!ok.ok) {
+        setKickNotice({ kind: 'err', text: ok.reason });
+        return;
+      }
+      // 发送前重新读催办记录,冷却中的跳过,避免重复催
+      const fresh = await nudger.history();
+      const todo = kickList.filter((t) => nudgeWaitMs(fresh, t.id, effAccess.userId, Date.now()) === 0);
+      const message = `我负责的「${selected.name}」在等这项前置任务完成,麻烦尽快推进~`;
+      const done: string[] = [];
+      const failed: string[] = [];
+      for (const t of todo) {
+        try {
+          await nudger.send({ task: t, tableId: config.tableId, message, nudgerId: effAccess.userId });
+          done.push(t.owner || t.name);
+        } catch (e) {
+          failed.push(`${t.name}(${String((e as Error)?.message ?? e)})`);
+        }
+      }
+      setLogs(await nudger.history());
+      const who = [...new Set(done)].join('、');
+      if (failed.length) {
+        setKickNotice({
+          kind: 'err',
+          text: `${done.length ? `已催 ${done.length} 个(${who}),` : ''}${failed.length} 个失败:${failed.join(';')}`,
+        });
+      } else if (done.length) {
+        setKickNotice({ kind: 'ok', text: `已踹出 ${done.length} 脚,系统会通知 ${who}。` });
+      }
+    } catch (e) {
+      setKickNotice({ kind: 'err', text: `催办失败:${String((e as Error)?.message ?? e)}` });
+    } finally {
+      setKickBusy(false);
+    }
+  }, [selected, kickList, effAccess.userId, config.tableId]);
 
   const sendNudge = useCallback(
     async (message: string) => {
@@ -363,6 +418,11 @@ export function App() {
             notice: nudgeNotice,
             onSend: sendNudge,
           }}
+          kickAll={
+            kickable
+              ? { targets: kickList, ready: kickReady, waitMs: kickWait, busy: kickBusy, notice: kickNotice, onSend: kickAll }
+              : undefined
+          }
         />
       ) : null}
 

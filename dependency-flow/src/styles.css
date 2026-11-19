@@ -460,6 +460,54 @@
   color: var(--bm-text-2);
   font-weight: 400;
 }
+.df-btn.is-kick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.df-kick-icon {
+  width: 26px;
+  height: 19px;
+  flex: none;
+  transform-origin: 25% 10%;
+}
+.df-btn.is-kick:not(:disabled):hover .df-kick-icon {
+  animation: df-kick 0.5s ease-in-out infinite alternate;
+}
+.df-btn.is-kick:disabled .df-kick-icon {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+@keyframes df-kick {
+  from {
+    transform: rotate(18deg);
+  }
+  to {
+    transform: rotate(-14deg) translateX(1px);
+  }
+}
+.df-kick-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.df-kick-item {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--bm-warn);
+  background: var(--bm-warn-bg);
+}
+.df-kick-item.is-wait {
+  color: var(--bm-text-2);
+  background: transparent;
+  border: 1px dashed var(--df-card-border);
+}
 .df-notice {
   padding: 6px 10px;
   border-radius: 8px;

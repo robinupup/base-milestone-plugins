@@ -70,6 +70,16 @@ export function canNudge(task: FlowTask, g: FlowGraph, access: Access): boolean 
   return relatedIds(g, access.userId).has(task.id);
 }
 
+/**
+ * 一键催办的对象:自己负责的任务的直接前置里,未完成、有负责人、且不是自己负责的。
+ * 不是自己的任务返回空,按钮不显示。
+ */
+export function kickTargets(task: FlowTask, g: FlowGraph, userId: string | null): FlowTask[] {
+  if (!isMine(task, userId)) return [];
+  const preds = new Set(g.edges.filter((e) => e.to === task.id && e.from !== task.id).map((e) => e.from));
+  return g.tasks.filter((t) => preds.has(t.id) && t.kind !== 'done' && t.ownerIds.length > 0 && !isMine(t, userId));
+}
+
 /** 同一催办人对同一任务的冷却时间 */
 export const NUDGE_COOLDOWN_MS = 60 * 60 * 1000;
 

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildGraph, defaultFlowConfig } from '../src/graph.ts';
 import type { FlowGraph } from '../src/graph.ts';
-import { canNudge, formatWait, lastNudgeAt, modeFromViewName, nudgeWaitMs, restrictToOwner } from '../src/policy.ts';
+import { canNudge, formatWait, kickTargets, lastNudgeAt, modeFromViewName, nudgeWaitMs, restrictToOwner } from '../src/policy.ts';
 import { personIds } from '../../shared/src/records.ts';
 
 const text = (s: string) => [{ type: 'text', text: s }];
@@ -81,6 +81,22 @@ test('canNudge:管理员可催有负责人且未完成的;普通用户可催与�
   assert.equal(canNudge(t('e'), g, u2), false); // e 和 b 没有依赖关系
   assert.equal(canNudge(t('b'), g, u2), false); // 自己
   assert.equal(canNudge(t('a'), g, { userId: null, isAdmin: false }), false);
+});
+
+test('kickTargets:只催自己任务的未完成直接前置,跳过已完成、自己负责和没有负责人的', () => {
+  const t = (id: string) => g.tasks.find((x) => x.id === id)!;
+  assert.deepEqual(kickTargets(t('d'), g, 'u4').map((x) => x.id), ['c']); // f 已验收通过
+  assert.deepEqual(kickTargets(t('b'), g, 'u2').map((x) => x.id), ['a']);
+  assert.deepEqual(kickTargets(t('c'), g, 'u3').map((x) => x.id), ['b']); // 只算直接前置,不含 a
+  assert.deepEqual(kickTargets(t('a'), g, 'u1'), []); // 没有前置
+  assert.deepEqual(kickTargets(t('d'), g, 'u2'), []); // 不是自己的任务
+  assert.deepEqual(kickTargets(t('d'), g, null), []);
+  const mixed = buildGraph(
+    [rec('p', 'u5', '进行中'), rec('q', 'u6', '待开启'), { ...rec('r', 'u5', '待开启'), fields: { ...rec('r', 'u5', '待开启').fields, o: [] } }, rec('s', 'u6', '待开启', ['p', 'q', 'r'])],
+    cfg,
+  );
+  const s = mixed.tasks.find((x) => x.id === 's')!;
+  assert.deepEqual(kickTargets(s, mixed, 'u6').map((x) => x.id), ['p']); // q 是自己的,r 没有负责人
 });
 
 test('催办冷却:同一人同一任务 1 小时内不能再催', () => {
