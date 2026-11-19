@@ -41,23 +41,23 @@ test('buildGraph 带出 ownerIds', () => {
   assert.deepEqual(g.tasks.find((t) => t.id === 'b')?.ownerIds, ['u2']);
 });
 
-test('restrictToOwner:只留自己的任务和直接上下游,其他标记为 external', () => {
+test('restrictToOwner:保留自己的任务和全部上下游,其他标记为 external', () => {
   const r = restrictToOwner(g, 'u2');
   const ids = r.tasks.map((t) => t.id).sort();
   assert.deepEqual(ids, ['a', 'b', 'c', 'd', 'f']);
   assert.equal(r.tasks.find((t) => t.id === 'b')?.external, undefined);
   assert.equal(r.tasks.find((t) => t.id === 'a')?.external, true);
   assert.equal(r.tasks.find((t) => t.id === 'c')?.external, true);
-  // c->d 两端都不是自己的,不保留;f->d 里 f 是自己的所以保留
+  // 相关范围内的连线全部保留
   assert.deepEqual(
     r.edges.map((e) => `${e.from}>${e.to}`).sort(),
-    ['a>b', 'b>c', 'f>d'],
+    ['a>b', 'b>c', 'c>d', 'f>d'],
   );
 });
 
 test('restrictToOwner:看不到无关的人;没有任务的人什么也看不到;取不到用户时为空', () => {
   const r3 = restrictToOwner(g, 'u3');
-  assert.deepEqual(r3.tasks.map((t) => t.id).sort(), ['b', 'c', 'd']);
+  assert.deepEqual(r3.tasks.map((t) => t.id).sort(), ['a', 'b', 'c', 'd']); // f 只是 d 的另一条前置,和 c 无关
   assert.equal(restrictToOwner(g, 'nobody').tasks.length, 0);
   assert.equal(restrictToOwner(g, null).tasks.length, 0);
 });
@@ -65,10 +65,11 @@ test('restrictToOwner:看不到无关的人;没有任务的人什么也看不到
 test('restrictToOwner:自己独立的任务也保留', () => {
   const r = restrictToOwner(g, 'u1');
   assert.ok(r.tasks.some((t) => t.id === 'e' && !t.external));
-  assert.ok(!r.tasks.some((t) => t.id === 'd'));
+  // 间接后置 b、c、d 也相关
+  assert.deepEqual(r.tasks.map((t) => t.id).sort(), ['a', 'b', 'c', 'd', 'e']);
 });
 
-test('canNudge:管理员可催有负责人且未完成的;普通用户只能催与自己直接相关的', () => {
+test('canNudge:管理员可催有负责人且未完成的;普通用户可催与自己相关的全部上下游', () => {
   const t = (id: string) => g.tasks.find((x) => x.id === id)!;
   const admin = { userId: 'u9', isAdmin: true };
   assert.equal(canNudge(t('c'), g, admin), true);
@@ -76,6 +77,8 @@ test('canNudge:管理员可催有负责人且未完成的;普通用户只能催�
   const u2 = { userId: 'u2', isAdmin: false };
   assert.equal(canNudge(t('a'), g, u2), true); // a 是 b 的前置
   assert.equal(canNudge(t('c'), g, u2), true); // c 是 b 的后置,也算相关
+  assert.equal(canNudge(t('d'), g, u2), true); // d 是 b 的间接后置
+  assert.equal(canNudge(t('e'), g, u2), false); // e 和 b 没有依赖关系
   assert.equal(canNudge(t('b'), g, u2), false); // 自己
   assert.equal(canNudge(t('a'), g, { userId: null, isAdmin: false }), false);
 });

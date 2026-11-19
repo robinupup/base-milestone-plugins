@@ -10,30 +10,50 @@ export interface Access {
 
 export const isMine = (t: FlowTask, userId: string | null) => !!userId && t.ownerIds.includes(userId);
 
-/**
- * 非管理员视图:只保留自己负责的任务,以及它们的直接前置和直接后置任务(标记为 external、只读)。
- * 两个都不是自己的任务之间的连线会被去掉。
- */
-export function restrictToOwner(g: FlowGraph, userId: string | null): FlowGraph {
-  const mine = new Set(g.tasks.filter((t) => isMine(t, userId)).map((t) => t.id));
-  const keep = new Set(mine);
-  const edges: FlowEdge[] = [];
-  for (const e of g.edges) {
-    if (mine.has(e.from) || mine.has(e.to)) {
-      keep.add(e.from);
-      keep.add(e.to);
-      edges.push(e);
+/** 从起点出发沿一个方向走到头,返回经过的所有任务 id(不含起点本身,除非有环) */
+function reach(g: FlowGraph, starts: Set<string>, dir: 'up' | 'down'): Set<string> {
+  const seen = new Set<string>();
+  const queue = [...starts];
+  while (queue.length) {
+    const cur = queue.pop()!;
+    for (const e of g.edges) {
+      const [here, next] = dir === 'up' ? [e.to, e.from] : [e.from, e.to];
+      if (here === cur && !seen.has(next)) {
+        seen.add(next);
+        queue.push(next);
+      }
     }
   }
+  return seen;
+}
+
+/**
+ * 和某人相关的任务:自己负责的,加上这些任务的全部上游(直接和间接前置)和全部下游(直接和间接后置)。
+ * 同一个上游的其他分支、与自己无依赖链的任务不算相关。
+ */
+export function relatedIds(g: FlowGraph, userId: string | null): Set<string> {
+  const mine = new Set(g.tasks.filter((t) => isMine(t, userId)).map((t) => t.id));
+  const out = new Set(mine);
+  for (const id of reach(g, mine, 'up')) out.add(id);
+  for (const id of reach(g, mine, 'down')) out.add(id);
+  return out;
+}
+
+/**
+ * 非管理员视图:只保留与自己相关的任务(自己的 + 全部上下游),别人负责的标记为 external。
+ * 连线只保留两端都在相关范围内的。
+ */
+export function restrictToOwner(g: FlowGraph, userId: string | null): FlowGraph {
+  const keep = relatedIds(g, userId);
+  const edges: FlowEdge[] = g.edges.filter((e) => keep.has(e.from) && keep.has(e.to));
   const tasks = g.tasks
     .filter((t) => keep.has(t.id))
-    .map((t) => (mine.has(t.id) ? t : { ...t, external: true }));
-  const ids = new Set(tasks.map((t) => t.id));
+    .map((t) => (isMine(t, userId) ? t : { ...t, external: true }));
   return {
     tasks,
     edges,
     isolated: g.isolated,
-    cycleEdges: g.cycleEdges.filter((e) => ids.has(e.from) && ids.has(e.to) && edges.some((x) => x.from === e.from && x.to === e.to)),
+    cycleEdges: g.cycleEdges.filter((e) => edges.some((x) => x.from === e.from && x.to === e.to)),
   };
 }
 
@@ -41,14 +61,13 @@ export function restrictToOwner(g: FlowGraph, userId: string | null): FlowGraph 
  * 能不能催这个任务:
  * - 没有负责人或已完成的任务不用催;
  * - 管理员可以催任何人;
- * - 非管理员可以催和自己任务直接相关的任务(前置或后置),不能催自己。
+ * - 非管理员可以催所有与自己相关的任务(上下游全部),不能催自己。
  */
 export function canNudge(task: FlowTask, g: FlowGraph, access: Access): boolean {
   if (task.kind === 'done' || task.ownerIds.length === 0) return false;
   if (access.isAdmin) return true;
   if (!access.userId || isMine(task, access.userId)) return false;
-  const mine = new Set(g.tasks.filter((t) => isMine(t, access.userId)).map((t) => t.id));
-  return g.edges.some((e) => (e.from === task.id && mine.has(e.to)) || (e.to === task.id && mine.has(e.from)));
+  return relatedIds(g, access.userId).has(task.id);
 }
 
 /** 同一催办人对同一任务的冷却时间 */
