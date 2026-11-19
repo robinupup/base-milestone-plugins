@@ -6,3 +6,4 @@ export * from './milestones';
 export * from './usePlugin';
 export { useToday } from './useToday';
 export * from './records';
+export * from './async';

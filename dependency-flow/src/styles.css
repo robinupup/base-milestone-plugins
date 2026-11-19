@@ -175,6 +175,13 @@
   color: var(--bm-text-2);
   white-space: nowrap;
 }
+.df-updated {
+  color: var(--bm-text-2);
+  font-size: 12px;
+  opacity: 0.75;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 .df-warn {
   color: var(--bm-danger);
   white-space: nowrap;

@@ -2,6 +2,7 @@ import { bitable, dashboard } from '@lark-base-open/js-sdk';
 import { GroupMode, SourceType } from '@lark-base-open/js-sdk';
 import type { FlowConfig } from './graph.ts';
 import { isMock } from './data.ts';
+import { readConfig, writeConfig } from './storage.ts';
 
 export type HostState = 'Create' | 'Config' | 'View' | 'FullScreen' | 'TableView';
 export type Theme = 'LIGHT' | 'DARK';
@@ -16,15 +17,22 @@ export interface Host {
 }
 
 const params = () => new URLSearchParams(window.location.search);
-const storeKey = (suffix = '') => `dependency-flow:${window.location.pathname}${suffix}`;
 
-const localConfig = (): Partial<FlowConfig> | null => {
-  try {
-    return JSON.parse(localStorage.getItem(storeKey()) || 'null');
-  } catch {
-    return null;
-  }
+/** 数据表视图里,当前插件视图的 id(用来隔离每个视图自己的配置);取不到时返回 undefined */
+let viewIdPromise: Promise<string | undefined> | undefined;
+const currentViewId = () => {
+  if (isMock()) return Promise.resolve(params().get('view') ?? undefined);
+  viewIdPromise ??= Promise.race([
+    bitable.base.getSelection().then((s) => s?.viewId ?? undefined),
+    new Promise<undefined>((r) => setTimeout(() => r(undefined), 1500)),
+  ]).catch(() => undefined);
+  return viewIdPromise;
 };
+
+const localConfig = async (): Promise<Partial<FlowConfig> | null> =>
+  readConfig<Partial<FlowConfig>>(localStorage, await currentViewId(), window.location.pathname);
+const saveLocalConfig = async (c: FlowConfig) =>
+  writeConfig(localStorage, await currentViewId(), window.location.pathname, c);
 
 const systemTheme = (): Theme => (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'DARK' : 'LIGHT');
 
@@ -32,9 +40,9 @@ const systemTheme = (): Theme => (window.matchMedia?.('(prefers-color-scheme: da
 function tableViewHost(): Host {
   return {
     state: 'TableView',
-    loadConfig: async () => localConfig(),
+    loadConfig: () => localConfig(),
     saveConfig: async (c) => {
-      localStorage.setItem(storeKey(), JSON.stringify(c));
+      await saveLocalConfig(c);
       return true;
     },
     setRendered: async () => {},
@@ -74,7 +82,7 @@ function dashboardHost(): Host {
     },
     async saveConfig(c) {
       if (mock) {
-        localStorage.setItem(storeKey(), JSON.stringify(c));
+        await saveLocalConfig(c);
         return true;
       }
       return dashboard.saveConfig({

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ConfigLayout } from '@shared';
+import { ConfigLayout, createLatest, onBecameVisible } from '@shared';
 import type { FieldInfo, TableInfo } from '@shared';
 import type { RawRecord } from '../../shared/src/records.ts';
 import { autoPickFlow, pickTable } from './autopick.ts';
@@ -39,6 +39,12 @@ export function App() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const loadedRef = useRef(false);
+  const configRef = useRef(config);
+  configRef.current = config;
+  // 字段增删改时递增,触发重新拉字段列表
+  const [fieldsTick, setFieldsTick] = useState(0);
+  // 最近一次成功读到数据的时间,显示在顶部栏,方便确认数据是否新鲜
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
   // 初始化:主题、已保存配置、数据表
   useEffect(() => {
@@ -75,7 +81,7 @@ export function App() {
       .then((list) => {
         if (cancelled) return;
         setFields(list);
-        const patch = autoPickFlow(list, config);
+        const patch = autoPickFlow(list, configRef.current);
         if (Object.keys(patch).length) {
           dlog('flow autopick', patch);
           setConfig((c) => ({ ...c, ...patch }));
@@ -86,27 +92,45 @@ export function App() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, config.tableId]);
+  }, [ready, config.tableId, fieldsTick]);
 
   // 读记录并订阅变化
   useEffect(() => {
     if (!ready || !config.tableId) return;
+    const tableId = config.tableId;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // 连续多次读取只采纳最新一次,避免慢请求用旧数据覆盖新数据
+    const latest = createLatest();
     const reload = () =>
-      source
-        .loadRecords(config.tableId as string)
-        .then((r) => !cancelled && setRecords(r))
+      latest
+        .run(
+          () => source.loadRecords(tableId),
+          (r) => {
+            if (cancelled) return;
+            setRecords(r);
+            setUpdatedAt(new Date());
+            setError(null);
+          },
+        )
         .catch((e) => !cancelled && setError(String(e?.message ?? e)));
-    reload();
-    const off = source.subscribe(config.tableId, () => {
+    const soon = () => {
       clearTimeout(timer);
       timer = setTimeout(reload, 400);
+    };
+    reload();
+    const off = source.subscribe(tableId, soon, () => {
+      setFieldsTick((n) => n + 1);
+      soon();
     });
+    // 事件之外的兜底:标签页重新可见时再读一次
+    const offVisible = onBecameVisible(soon);
     return () => {
       cancelled = true;
+      latest.cancel();
       clearTimeout(timer);
       off();
+      offVisible();
     };
   }, [ready, config.tableId]);
 
@@ -175,6 +199,11 @@ export function App() {
         <span className="df-stat">
           {graph.tasks.length} 个任务 · {graph.edges.length} 条依赖
         </span>
+        {updatedAt ? (
+          <span className="df-updated" title="数据最近一次刷新时间,表里有改动会自动刷新">
+            更新于 {updatedAt.toLocaleTimeString('zh-CN', { hour12: false })}
+          </span>
+        ) : null}
         {graph.cycleEdges.length ? <span className="df-warn">⚠ {graph.cycleEdges.length} 处循环依赖(红色虚线)</span> : null}
         <span className="df-grow" />
         {isDashConfig ? null : (

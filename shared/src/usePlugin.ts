@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { IConfig, IDataCondition } from '@lark-base-open/js-sdk';
 import { createBridge } from './bridge';
+import { createDisposer, createLatest, onBecameVisible } from './async';
 import { dlog } from './devlog';
 import type { Bridge, FieldInfo, PluginState, TableInfo, ThemeMode } from './bridge';
 import { buildLayout, COLUMN_ORDER } from './milestones';
@@ -177,22 +178,23 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
 
   // 初始化
   useEffect(() => {
-    let off: Array<() => void> = [];
-    let cancelled = false;
+    // 所有订阅统一交给 disposer:异步初始化在卸载后才完成时,迟到的订阅会被立即取消
+    const disposer = createDisposer();
     (async () => {
       try {
         dlog('init: createBridge');
         const b = await createBridge();
         dlog('init: bridge ok, state=', b.state);
-        if (cancelled) return;
+        if (disposer.disposed) return;
         setBridge(b);
         const th = await b.getTheme().catch((e) => {
           dlog('getTheme failed', e);
           return 'LIGHT' as ThemeMode;
         });
         dlog('init: theme=', th);
+        if (disposer.disposed) return;
         setTheme(b.state === 'FullScreen' ? 'DARK' : th);
-        off.push(b.onThemeChange((x) => setTheme(b.state === 'FullScreen' ? 'DARK' : x)));
+        disposer.add(b.onThemeChange((x) => setTheme(b.state === 'FullScreen' ? 'DARK' : x)));
 
         if (b.state === 'Create') {
           const list = await b.getTables();
@@ -212,16 +214,27 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
             let current = loaded;
             let offRecords: () => void = () => {};
             let timer: ReturnType<typeof setTimeout> | undefined;
+            // 连续多次读取时只采纳最新一次,避免慢请求用旧数据覆盖新数据
+            const latest = createLatest();
             const reload = async () => {
               try {
                 const { fieldIds } = buildLayout(current);
                 if (!current.tableId || !fieldIds.length) {
+                  latest.cancel();
                   setData([]);
                   return;
                 }
-                setData(await b.getRows(current.tableId, fieldIds));
+                const tableId = current.tableId;
+                await latest.run(
+                  () => b.getRows(tableId, fieldIds),
+                  (rows) => {
+                    if (disposer.disposed) return;
+                    setData(rows);
+                    setError(null);
+                  },
+                );
               } catch (e) {
-                setError(String((e as Error)?.message ?? e));
+                if (!disposer.disposed) setError(String((e as Error)?.message ?? e));
               }
             };
             const reloadSoon = () => {
@@ -230,37 +243,43 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
             };
             const subscribe = () => {
               offRecords();
+              offRecords = () => {};
               if (current.tableId) offRecords = b.onRecordsChange(current.tableId, reloadSoon);
             };
-            await reload();
-            subscribe();
-            off.push(b.onDataChange(reloadSoon));
-            off.push(
-              b.onConfigChange(async () => {
-                current = await loadConfig(b);
-                setConfig(current);
-                subscribe();
-                await reload();
-              }),
-            );
-            off.push(() => {
+            // 先登记清理,再做可能耗时的异步读取;卸载后迟到的订阅会被立即取消
+            disposer.add(() => {
               clearTimeout(timer);
+              latest.cancel();
               offRecords();
             });
+            await reload();
+            if (disposer.disposed) return;
+            subscribe();
+            disposer.add(b.onDataChange(reloadSoon));
+            disposer.add(onBecameVisible(reloadSoon));
+            disposer.add(
+              b.onConfigChange(async () => {
+                try {
+                  current = await loadConfig(b);
+                  if (disposer.disposed) return;
+                  setConfig(current);
+                  subscribe();
+                  await reload();
+                } catch (e) {
+                  if (!disposer.disposed) setError(String((e as Error)?.message ?? e));
+                }
+              }),
+            );
           }
         }
         dlog('init: ready');
-        setReady(true);
+        if (!disposer.disposed) setReady(true);
       } catch (e) {
         dlog('init: error', e);
-        setError(String((e as Error)?.message ?? e));
+        if (!disposer.disposed) setError(String((e as Error)?.message ?? e));
       }
     })();
-    return () => {
-      cancelled = true;
-      off.forEach((f) => f());
-      off = [];
-    };
+    return () => disposer.dispose();
   }, [loadConfig]);
 
   // 主题:同步到 body(Semi 的暗色模式依赖 theme-mode 属性)
