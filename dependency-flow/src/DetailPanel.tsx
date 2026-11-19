@@ -98,7 +98,7 @@ export function DetailPanel({
             <>
               <textarea
                 className="df-nudge-input"
-                placeholder={`给${task.owner || '负责人'}留一句话(可选)`}
+                placeholder={`给${task.owner || '负责人'}留一句话(可选,不填则自动通知并附记录链接)`}
                 value={msg}
                 maxLength={200}
                 onChange={(e) => setMsg(e.target.value)}
@@ -109,7 +109,7 @@ export function DetailPanel({
                   取消
                 </button>
                 <button className="df-btn is-primary" onClick={() => nudge.onSend(msg)} disabled={nudge.busy}>
-                  {nudge.busy ? '发送中…' : '确认催办'}
+                  {nudge.busy ? '发送中…' : msg.trim() ? '带留言催办' : '直接催办'}
                 </button>
               </div>
             </>

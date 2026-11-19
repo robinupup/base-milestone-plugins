@@ -15,9 +15,13 @@ const F = {
   at: '催办时间',
   message: '留言',
 } as const;
+/** 可选字段:记录链接(文本)。没有这一列时,链接会附在留言末尾 */
+const LINK_FIELD = '记录链接';
 
 export interface NudgeInput {
   task: FlowTask;
+  /** 任务所在的数据表,用来生成记录链接 */
+  tableId?: string;
   message: string;
   nudgerId: string | null;
 }
@@ -44,6 +48,7 @@ const mockNudger: Nudger = {
 interface Resolved {
   tableId: string;
   fieldIds: Record<keyof typeof F, string>;
+  linkFieldId?: string;
 }
 
 async function resolve(): Promise<Resolved | { error: string }> {
@@ -58,11 +63,25 @@ async function resolve(): Promise<Resolved | { error: string }> {
   const fieldIds = Object.fromEntries(
     (Object.keys(F) as Array<keyof typeof F>).map((k) => [k, byName.get(F[k])!]),
   ) as Resolved['fieldIds'];
-  return { tableId: meta.id, fieldIds };
+  return { tableId: meta.id, fieldIds, linkFieldId: byName.get(LINK_FIELD) };
 }
 
 let cached: Promise<Resolved | { error: string }> | undefined;
 const getResolved = () => (cached ??= resolve().catch((e) => ({ error: String(e?.message ?? e) })));
+
+/** 任务记录的链接,点开直接定位到这条记录;取不到时返回空串 */
+async function recordLink(tableId: string, recordId: string): Promise<string> {
+  try {
+    const table = await bitable.base.getTableById(tableId);
+    const views = (await (table as any).getViewMetaList()) as Array<{ id: string; type: unknown }>;
+    // 优先用普通表格视图,避免链接指向插件视图
+    const grid = views.find((v) => v.type === 1 || String(v.type).toLowerCase() === 'grid') ?? views[0];
+    if (!grid) return '';
+    return await (bitable as any).bridge.getBitableUrl({ tableId, viewId: grid.id, recordId });
+  } catch {
+    return '';
+  }
+}
 
 const realNudger: Nudger = {
   async check() {
@@ -84,7 +103,7 @@ const realNudger: Nudger = {
       return [{ taskId, nudgerId: personIds(row.fields[r.fieldIds.nudger])[0] ?? '', at }];
     });
   },
-  async send({ task, message, nudgerId }) {
+  async send({ task, tableId, message, nudgerId }) {
     const r = await getResolved();
     if ('error' in r) throw new Error(r.error);
     const table = await bitable.base.getTableById(r.tableId);
@@ -96,7 +115,13 @@ const realNudger: Nudger = {
       [r.fieldIds.at]: Date.now(),
     };
     if (nudgerId) fields[r.fieldIds.nudger] = [{ id: nudgerId }];
-    if (message.trim()) fields[r.fieldIds.message] = text(message.trim());
+    const link = tableId ? await recordLink(tableId, task.id) : '';
+    let note = message.trim();
+    if (link) {
+      if (r.linkFieldId) fields[r.linkFieldId] = text(link);
+      else note = note ? `${note}\n${link}` : link;
+    }
+    if (note) fields[r.fieldIds.message] = text(note);
     await (table as any).addRecord({ fields });
   },
 };

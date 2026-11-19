@@ -225,7 +225,7 @@ export function App() {
         const fresh = await nudger.history();
         setLogs(fresh);
         if (nudgeWaitMs(fresh, selected.id, effAccess.userId, Date.now()) > 0) return;
-        await nudger.send({ task: selected, message, nudgerId: effAccess.userId });
+        await nudger.send({ task: selected, tableId: config.tableId, message, nudgerId: effAccess.userId });
         setLogs(await nudger.history());
         setNudgeNotice({ kind: 'ok', text: `已发出催办,系统会通知${selected.owner || '负责人'}。` });
       } catch (e) {
@@ -234,7 +234,7 @@ export function App() {
         setNudgeBusy(false);
       }
     },
-    [selected, effAccess.userId],
+    [selected, effAccess.userId, config.tableId],
   );
 
   // 展示状态下告知仪表盘已渲染完成
