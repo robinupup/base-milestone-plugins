@@ -68,14 +68,14 @@ test('restrictToOwner:自己独立的任务也保留', () => {
   assert.ok(!r.tasks.some((t) => t.id === 'd'));
 });
 
-test('canNudge:管理员可催有负责人且未完成的;普通用户只能催自己的直接前置', () => {
+test('canNudge:管理员可催有负责人且未完成的;普通用户只能催与自己直接相关的', () => {
   const t = (id: string) => g.tasks.find((x) => x.id === id)!;
   const admin = { userId: 'u9', isAdmin: true };
   assert.equal(canNudge(t('c'), g, admin), true);
   assert.equal(canNudge(t('f'), g, admin), false); // 已完成
   const u2 = { userId: 'u2', isAdmin: false };
   assert.equal(canNudge(t('a'), g, u2), true); // a 是 b 的前置
-  assert.equal(canNudge(t('c'), g, u2), false); // c 是 b 的后置,不能催
+  assert.equal(canNudge(t('c'), g, u2), true); // c 是 b 的后置,也算相关
   assert.equal(canNudge(t('b'), g, u2), false); // 自己
   assert.equal(canNudge(t('a'), g, { userId: null, isAdmin: false }), false);
 });

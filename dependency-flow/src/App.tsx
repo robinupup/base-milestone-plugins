@@ -350,7 +350,7 @@ export function App() {
           task={selected}
           record={recordById.get(selected.id)}
           fields={fields}
-          full={!selected.external && (effAccess.isAdmin || isMine(selected, effAccess.userId))}
+          full
           onClose={() => setSelectedId(null)}
           nudge={{
             state: !nudgeAllowed

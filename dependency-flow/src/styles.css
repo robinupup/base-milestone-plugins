@@ -318,7 +318,7 @@
 }
 .df-node.is-external {
   border-style: dashed;
-  opacity: 0.62;
+  opacity: 0.9;
 }
 
 /* ===== 记录详情面板 ===== */

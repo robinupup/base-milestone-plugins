@@ -41,14 +41,14 @@ export function restrictToOwner(g: FlowGraph, userId: string | null): FlowGraph 
  * 能不能催这个任务:
  * - 没有负责人或已完成的任务不用催;
  * - 管理员可以催任何人;
- * - 非管理员只能催自己任务的直接前置任务(挡着自己的人),不能催自己。
+ * - 非管理员可以催和自己任务直接相关的任务(前置或后置),不能催自己。
  */
 export function canNudge(task: FlowTask, g: FlowGraph, access: Access): boolean {
   if (task.kind === 'done' || task.ownerIds.length === 0) return false;
   if (access.isAdmin) return true;
   if (!access.userId || isMine(task, access.userId)) return false;
   const mine = new Set(g.tasks.filter((t) => isMine(t, access.userId)).map((t) => t.id));
-  return g.edges.some((e) => e.from === task.id && mine.has(e.to));
+  return g.edges.some((e) => (e.from === task.id && mine.has(e.to)) || (e.to === task.id && mine.has(e.from)));
 }
 
 /** 同一催办人对同一任务的冷却时间 */
