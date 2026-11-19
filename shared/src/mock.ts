@@ -105,10 +105,17 @@ export function createMockBridge(): Bridge {
     getPreviewData: (c) => delay(aggregate(recs, Array.isArray(c) ? c[0] : c)),
     getData: async () => {
       const cond = saved?.dataConditions?.[0];
-      return delay(cond ? aggregate(recs, cond) : []);
+      // ?hide=关键词:模拟「项目归属」筛选器,把名称含该词的记录从可见集合里去掉
+      const hide = q.get('hide');
+      const visible = hide ? recs.filter((r) => !String(r.fld_name).includes(hide)) : recs;
+      return delay(cond ? aggregate(visible, cond) : []);
     },
     getRows: (_t, fieldIds) =>
       delay(aggregate(recs, { tableId: _t, groups: fieldIds.map((fieldId) => ({ fieldId })) } as unknown as IDataCondition)),
+    getKeyedRows: async (_t, fieldIds) => {
+      const rows = aggregate(recs, { tableId: _t, groups: fieldIds.map((fieldId) => ({ fieldId })) } as unknown as IDataCondition);
+      return delay({ rows, keys: rows.map(() => '') });
+    },
     getFieldValues: async (_t, fieldId) => {
       const rows = aggregate(recs, { tableId: _t, groups: [{ fieldId }] } as unknown as IDataCondition);
       return delay([...new Set(rows.map((r) => String(r[0].text ?? '')).filter(Boolean))]);

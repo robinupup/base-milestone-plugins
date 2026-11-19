@@ -20,6 +20,8 @@ export interface SourceConfig {
   flagKeyword?: string;
   nameFieldId?: string;
   dateFieldId?: string;
+  /** 跟随仪表盘筛选器用的"记录键"字段:优先自动编号(唯一、格式稳定),没有时退回名称字段 */
+  keyFieldId?: string;
 }
 
 export type ColumnKey = 'status' | 'flag' | 'name' | 'date';

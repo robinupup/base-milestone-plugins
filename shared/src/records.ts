@@ -46,6 +46,44 @@ export function distinctValues(records: RawRecord[], fieldId: string): string[] 
   return [...set];
 }
 
+/** 键文本归一化:去空白;纯数字统一成规范写法("003" 与 3 视为同一个) */
+export function normKey(v: unknown): string {
+  const t = String(v ?? '').trim();
+  return /^-?\d+(\.\d+)?$/.test(t) ? String(Number(t)) : t;
+}
+
+const itemKey = (item?: DataItem | null) =>
+  !item ? '' : normKey(item.text ?? (item.value === null || item.value === undefined ? '' : item.value));
+
+/**
+ * 仪表盘 getData 返回的是"已按仪表盘筛选器(如「项目归属」切片器)过滤"后的聚合结果。
+ * 取每一行第一列(分组键)的文本,得到当前可见记录的键集合;
+ * 末列不是数字的行(接口返回的表头行)不算数据行。
+ */
+export function visibleKeys(data: DataItem[][] | null | undefined): Set<string> {
+  const keys = new Set<string>();
+  for (const row of data ?? []) {
+    if (!row.length) continue;
+    const count = row[row.length - 1]?.value;
+    if (typeof count !== 'number' || !Number.isFinite(count)) continue;
+    keys.add(itemKey(row[0]));
+  }
+  return keys;
+}
+
+/** 行与键一一对应(keys[i] 是 rows[i] 的键),只保留键在 visible 里的行 */
+export function filterByKeys<T>(rows: T[], keys: string[], visible: Set<string>): T[] {
+  return rows.filter((_, i) => visible.has(keys[i]));
+}
+
+/** 记录里的键字段 → 归一化后的键文本 */
+export function recordKey(r: RawRecord, keyFieldId: string): string {
+  return itemKey(cellToItem(r.fields[keyFieldId]));
+}
+
+/** 某一列的文本 → 键(用名称列做键时) */
+export const rowKey = (row: DataItem[], index: number): string => itemKey(row[index]);
+
 /** 人员字段里的用户 id 列表;单元格是 [{id,name,...}] 或单个对象 */
 export function personIds(v: unknown): string[] {
   if (!v) return [];

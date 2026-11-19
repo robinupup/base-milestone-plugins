@@ -5,6 +5,8 @@ import { createDisposer, createLatest, onBecameVisible } from './async';
 import { dlog } from './devlog';
 import type { Bridge, FieldInfo, PluginState, TableInfo, ThemeMode } from './bridge';
 import { buildLayout, COLUMN_ORDER } from './milestones';
+import { filterKeyOf } from './conditions';
+import { filterByKeys, rowKey, visibleKeys } from './records';
 import type { ColumnKey, DataRows, SourceConfig } from './milestones';
 
 // SDK FieldType 数值
@@ -58,6 +60,7 @@ export function autoPick<C extends SourceConfig>(c: C, fields: FieldInfo[], opts
       findField(fields, NAME_TYPES, [/名称|标题|name|title/i], used) ??
       fields.find((f) => f.type === FT.Text && !used.includes(f.id)),
   );
+  if (!next.keyFieldId) next.keyFieldId = fields.find((f) => f.type === FT.AutoNumber)?.id;
   if (opts.status) take('status', findField(fields, STATUS_TYPES, [/状态|进度|进展|status|state/i], used));
   return next;
 }
@@ -100,6 +103,23 @@ export async function smartFill(b: Bridge, c: SourceConfig): Promise<Partial<Sou
 /** 有多张表时,优先选名字像"项目/任务"的表 */
 const pickTable = (list: TableInfo[]) =>
   list.find((t) => /项目|任务|事件|计划|task|project|plan/i.test(t.name)) ?? list[0];
+
+/** 保存到仪表盘的配置:dataConditions 是"可见记录探针",customConfig 存完整配置 */
+function makePayload<C extends SourceConfig>(c: C, buildConditions: (c: C) => IDataCondition[]): IConfig {
+  const key = filterKeyOf(c);
+  return {
+    dataConditions: buildConditions(c),
+    customConfig: { ...c, __cols: key?.column ? [[key.column, 0]] : [] } as unknown as Record<string, unknown>,
+  };
+}
+
+/** 旧版本保存的 dataConditions 有多个分组,getData 会报错、也拿不到筛选结果;读到时自动升级成探针格式 */
+function needsUpgrade(saved: IConfig, want: IDataCondition[]): boolean {
+  if (!want.length) return false;
+  const have = saved.dataConditions?.[0];
+  const w = want[0];
+  return !have || have.tableId !== w.tableId || have.groups?.length !== 1 || have.groups[0].fieldId !== w.groups?.[0]?.fieldId;
+}
 
 interface Options<C extends SourceConfig> {
   defaults: C;
@@ -212,6 +232,25 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
           }
           if (b.state === 'View' || b.state === 'FullScreen') {
             let current = loaded;
+            // 旧配置没有记录键字段:自动找表里的自动编号字段
+            if (!current.keyFieldId && current.tableId) {
+              try {
+                const fl = await b.getFields(current.tableId);
+                const k = fl.find((f) => f.type === FT.AutoNumber)?.id;
+                if (k) current = { ...current, keyFieldId: k };
+              } catch (e) {
+                dlog('resolve key field failed', String((e as Error)?.message ?? e));
+              }
+            }
+            try {
+              const want = optsRef.current.buildConditions(current);
+              if (needsUpgrade(await b.getConfig(), want)) {
+                const ok = await b.saveConfig(makePayload(current, optsRef.current.buildConditions));
+                dlog('config upgraded to filter probe:', ok);
+              }
+            } catch (e) {
+              dlog('config upgrade failed', String((e as Error)?.message ?? e));
+            }
             let offRecords: () => void = () => {};
             let timer: ReturnType<typeof setTimeout> | undefined;
             // 连续多次读取时只采纳最新一次,避免慢请求用旧数据覆盖新数据
@@ -225,8 +264,48 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
                   return;
                 }
                 const tableId = current.tableId;
+                const key = filterKeyOf(current);
+                const cfg = current;
                 await latest.run(
-                  () => b.getRows(tableId, fieldIds),
+                  async () => {
+                    let rows: DataRows;
+                    let keys: string[] | null = null;
+                    if (key && cfg.keyFieldId) {
+                      ({ rows, keys } = await b.getKeyedRows(tableId, fieldIds, cfg.keyFieldId));
+                    } else {
+                      rows = await b.getRows(tableId, fieldIds);
+                      if (key && key.index !== undefined) keys = rows.map((r) => rowKey(r, key.index as number));
+                    }
+                    if (!keys) return rows;
+                    // 跟随仪表盘筛选器(如「项目归属」):getData 返回的是筛选后的可见记录
+                    try {
+                      const raw = await b.getData();
+                      const visible = visibleKeys(raw);
+                      let useRows = rows;
+                      let useKeys = keys;
+                      // 仪表盘返回数据的表头就是它实际分组的字段名。
+                      // 宿主可能仍在用旧的探针配置(分组字段与我们记录的键字段不同),
+                      // 这时按它实际分组的字段重新取键,保证两边能对上。
+                      const probeName = raw[0]?.[0]?.text;
+                      if (cfg.keyFieldId && probeName) {
+                        const fl = await b.getFields(tableId);
+                        const probe = fl.find((f) => f.name === probeName);
+                        if (probe && probe.id !== cfg.keyFieldId) {
+                          ({ rows: useRows, keys: useKeys } = await b.getKeyedRows(tableId, fieldIds, probe.id));
+                        }
+                      }
+                      const out = filterByKeys(useRows, useKeys, visible);                      // 一个都对不上说明键不可用,宁可显示全部也不要空白
+                      if (!out.length && useRows.length && visible.size) {
+                        dlog('probe keys unmatched, show all');
+                        return useRows;
+                      }
+                      return out;
+                    } catch (e) {
+                      // 取不到筛选结果(如旧配置还没升级)时退回显示全部,不让组件空白
+                      dlog('getData failed, show all', String((e as Error)?.message ?? e));
+                      return rows;
+                    }
+                  },
                   (rows) => {
                     if (disposer.disposed) return;
                     setData(rows);
@@ -318,7 +397,8 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
   }, [bridge, isConfig, config.tableId]);
 
   const conditions = useMemo(() => opts.buildConditions(config), [config]); // eslint-disable-line react-hooks/exhaustive-deps
-  const condKey = JSON.stringify(conditions);
+  // 探针只含键字段;预览要读全部角色字段,所以字段选择变化也要触发刷新
+  const condKey = JSON.stringify([conditions, buildLayout(config).fieldIds]);
   const configured = conditions.length > 0;
 
   // 配置状态下实时预览
@@ -367,6 +447,7 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
       next.doneValues = [];
       next.flagValues = [];
       next.flagKeyword = '';
+      next.keyFieldId = undefined;
       return next;
     });
   }, []);
@@ -375,12 +456,7 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
     if (!bridge) return false;
     setSaving(true);
     try {
-      const layout = buildLayout(config);
-      const cols = (Object.entries(layout.index) as Array<[ColumnKey, number]>).map(([k, i]) => [k, i]);
-      const payload: IConfig = {
-        dataConditions: optsRef.current.buildConditions(config),
-        customConfig: { ...config, __cols: cols } as unknown as Record<string, unknown>,
-      };
+      const payload = makePayload(config, optsRef.current.buildConditions);
       dlog('save: start');
       const ok = await bridge.saveConfig(payload);
       dlog('save: result', ok);

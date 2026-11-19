@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cellToItem, recordsToRows, distinctValues } from '../src/records.ts';
+import { cellToItem, recordsToRows, distinctValues, visibleKeys, filterByKeys, normKey, recordKey } from '../src/records.ts';
 import { parseSource } from '../src/milestones.ts';
 import type { SourceConfig } from '../src/milestones.ts';
 
@@ -59,4 +59,25 @@ test('parseSource 跳过仪表盘接口的表头行', () => {
 test('distinctValues 展开多选', () => {
   const v = distinctValues([{ fields: { x: [{ text: 'a' }, { text: 'b' }] } }, { fields: { x: [{ text: 'a' }] } }], 'x');
   assert.deepEqual(v.sort(), ['a', 'b']);
+});
+
+test('visibleKeys:忽略表头行;filterByKeys 按键过滤;数字键归一化', () => {
+  const data = [
+    [{ value: 'idx', text: 'index' }, { value: 'Bitable_Dashboard_Count', text: 'Bitable_Dashboard_Count' }],
+    [{ value: 1, text: '1' }, { value: 1, text: '1' }],
+    [{ value: 3, text: '3' }, { value: 1, text: '1' }],
+  ];
+  const visible = visibleKeys(data);
+  assert.deepEqual([...visible].sort(), ['1', '3']);
+  const rows = ['a', 'b', 'c'];
+  // 记录侧的自动编号可能是 "003" 或 3,都应当匹配
+  const keys = [normKey('001'), normKey(2), normKey(' 3 ')];
+  assert.deepEqual(filterByKeys(rows, keys, visible), ['a', 'c']);
+  assert.deepEqual(filterByKeys(rows, keys, visibleKeys([])), []);
+});
+
+test('recordKey 兼容自动编号的数字/对象写法', () => {
+  assert.equal(recordKey({ fields: { k: 12 } }, 'k'), '12');
+  assert.equal(recordKey({ fields: { k: { value: '012' } } }, 'k'), '12');
+  assert.equal(recordKey({ fields: {} }, 'k'), '');
 });

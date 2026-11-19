@@ -1,6 +1,6 @@
 import { bitable, dashboard, DashboardState } from '@lark-base-open/js-sdk';
 import type { IConfig, IData, IDataCondition } from '@lark-base-open/js-sdk';
-import { distinctValues, recordsToRows } from './records';
+import { distinctValues, recordKey, recordsToRows } from './records';
 import type { RawRecord } from './records';
 import type { DataRows } from './milestones';
 
@@ -28,6 +28,8 @@ export interface Bridge {
   getData(): Promise<IData>;
   /** 按字段顺序取整表记录(每行末尾带计数列),直接读多维表格,不受仪表盘聚合接口的分组数限制 */
   getRows(tableId: string, fieldIds: string[]): Promise<DataRows>;
+  /** 同 getRows,另外返回每行对应记录的键(keys[i] 对应 rows[i]),用来跟随仪表盘筛选器 */
+  getKeyedRows(tableId: string, fieldIds: string[], keyFieldId: string): Promise<{ rows: DataRows; keys: string[] }>;
   getFieldValues(tableId: string, fieldId: string): Promise<string[]>;
   /** 记录增删改时回调,返回取消订阅函数 */
   onRecordsChange(tableId: string, cb: () => void): () => void;
@@ -81,6 +83,10 @@ function realBridge(): Bridge {
     getData: () => dashboard.getData(),
     async getRows(tableId, fieldIds) {
       return recordsToRows(await loadRecords(tableId, fieldIds), fieldIds);
+    },
+    async getKeyedRows(tableId, fieldIds, keyFieldId) {
+      const records = await loadRecords(tableId, [...new Set([...fieldIds, keyFieldId])]);
+      return { rows: recordsToRows(records, fieldIds), keys: records.map((r) => recordKey(r, keyFieldId)) };
     },
     async getFieldValues(tableId, fieldId) {
       return distinctValues(await loadRecords(tableId, [fieldId]), fieldId);
