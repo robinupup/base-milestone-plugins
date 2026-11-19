@@ -3,6 +3,7 @@ import {
   ConfigLayout,
   SourceForm,
   buildSourceConditions,
+  findNextMilestone,
   isMilestoneDone,
   manualToMilestones,
   parseSource,
@@ -14,6 +15,7 @@ import {
 } from '@shared';
 import type { ManualMilestone, Milestone, SourceConfig } from '@shared';
 import { ProgressCard } from './ProgressCard';
+import { NextMilestoneCard, NextMilestoneLine } from './NextCard';
 import { ManualMilestones, DisplayOptions } from './ConfigExtras';
 
 export interface ProgressConfig extends SourceConfig {
@@ -46,36 +48,52 @@ export function App() {
     const milestones = sortMilestones(
       merged.map((m) => ({ ...m, done: isMilestoneDone(m, today, hasStatus) })),
     );
+    // 下一个里程碑和进度条用同一份里程碑列表(含手动补充的节点),两处永远一致
+    const next = findNextMilestone(milestones, today, hasStatus);
     return {
       total: parsed.total,
       done: parsed.done,
       percent: percent(parsed.done, parsed.total),
       milestones,
+      next,
     };
   }, [api.data, config, today, hasStatus]);
 
   if (api.error && !api.data) return <div className="bm-center">{t('common.error')}: {api.error}</div>;
   if (!api.ready) return <div className="bm-center">{t('common.loading')}</div>;
 
+  const nextConfigured =
+    api.configured && (config.flagValues.length > 0 || !!config.flagKeyword?.trim() || config.manual.length > 0);
+
   const card = (
-    <ProgressCard
-      configured={api.configured}
-      loading={api.dataLoading}
-      total={view.total}
-      done={view.done}
-      percent={view.percent}
-      milestones={view.milestones}
-      today={today}
-      showPercent={config.showPercent}
-      showDates={config.showDates}
-    />
+    <div className="mo-card">
+      <div className="mo-progress">
+        <ProgressCard
+          configured={api.configured}
+          loading={api.dataLoading}
+          total={view.total}
+          done={view.done}
+          percent={view.percent}
+          milestones={view.milestones}
+          today={today}
+          showPercent={config.showPercent}
+          showDates={config.showDates}
+        />
+      </div>
+      <div className="mo-next">
+        <NextMilestoneCard result={view.next} configured={nextConfigured} loading={api.dataLoading} />
+      </div>
+      <div className="mo-next-line">
+        <NextMilestoneLine result={view.next} configured={nextConfigured} />
+      </div>
+    </div>
   );
 
-  if (!api.isConfig) return <div className="mp-root">{card}</div>;
+  if (!api.isConfig) return <div className="mo-root">{card}</div>;
 
   return (
     <ConfigLayout
-      preview={<div className="mp-root">{card}</div>}
+      preview={<div className="mo-root">{card}</div>}
       form={
         <>
           <SourceForm api={api} statusRequired />

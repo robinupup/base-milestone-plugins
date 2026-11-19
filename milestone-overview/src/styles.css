@@ -1,8 +1,3 @@
-.mp-root {
-  height: 100%;
-  container-type: size;
-  box-sizing: border-box;
-}
 .mp-card {
   --th: clamp(8px, 4.8cqmin, 16px);
   --flag-w: clamp(16px, 7.4cqmin, 26px);

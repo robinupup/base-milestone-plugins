@@ -1,9 +1,4 @@
 /* 用容器查询单位随仪表盘格子大小缩放,最小 2x2 也能完整显示 */
-.nm-root {
-  height: 100%;
-  container-type: size;
-  box-sizing: border-box;
-}
 .nm-card {
   --accent: var(--bm-primary);
   --accent-bg: var(--bm-primary-bg);

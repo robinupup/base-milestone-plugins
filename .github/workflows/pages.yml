@@ -27,13 +27,13 @@ jobs:
       - run: npm test
       - run: npm run typecheck
       - run: npm run build
-      # 两个插件分别发布到 /progress/ 和 /next/,vite 的 base: './' 保证子路径下资源正常加载
+      # 插件分别发布到 /overview/ 和 /flow/,vite 的 base: './' 保证子路径下资源正常加载
       - name: Assemble site
         run: |
           mkdir -p site
-          cp -r milestone-progress/dist site/progress
-          cp -r next-milestone/dist site/next
-          printf '<!doctype html><meta charset="utf-8"><title>Base milestone plugins</title><ul><li><a href="progress/">整体进度(带里程碑)</a></li><li><a href="next/">下一个里程碑</a></li></ul>' > site/index.html
+          cp -r milestone-overview/dist site/overview
+          cp -r dependency-flow/dist site/flow
+          printf '<!doctype html><meta charset="utf-8"><title>Base plugins</title><ul><li><a href="overview/">里程碑总览(整体进度 + 下一个里程碑)</a></li><li><a href="flow/">依赖关系流程图</a></li></ul>' > site/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

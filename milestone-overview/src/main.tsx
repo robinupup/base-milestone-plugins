@@ -4,6 +4,8 @@ import ReactDOM from 'react-dom/client';
 import '@semi-bot/semi-theme-feishu-dashboard/semi.min.css';
 import '@shared/styles.css';
 import './styles.css';
+import './next.css';
+import './overview.css';
 import { App } from './App';
 import { installDevLog } from '@shared/devlog';
 

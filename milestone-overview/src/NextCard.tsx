@@ -48,6 +48,30 @@ const Title = () => (
   </div>
 );
 
+/** 紧凑模式(格子很小时):一行文字 */
+export function NextMilestoneLine({ result, configured }: { result: NextMilestoneResult; configured: boolean }) {
+  if (!configured) return null;
+  const { next, daysLeft } = result;
+  const hero = next ? formatHero(next.date) : null;
+  const tone = daysLeft === 0 ? 'today' : daysLeft !== null && daysLeft <= SOON_DAYS ? 'soon' : 'upcoming';
+  return (
+    <div className={`nl-line nl-${next ? tone : 'none'}`}>
+      <RedFlag />
+      {next && hero ? (
+        <>
+          <span className="nl-name" title={next.name}>
+            {next.name}
+          </span>
+          <span className="nl-date">{hero.main}</span>
+          <span className="nl-badge">{daysLeft === 0 ? t('next.today') : t('next.daysLeft', { n: daysLeft ?? 0 })}</span>
+        </>
+      ) : (
+        <span className="nl-name">{t('next.none')}</span>
+      )}
+    </div>
+  );
+}
+
 export function NextMilestoneCard({
   result,
   configured,

@@ -1,5 +1,5 @@
 // 依赖关系图的纯逻辑:从记录里抽取任务和依赖,不依赖 SDK 和 DOM,便于测试。
-import { cellTexts, cellToItem } from '../../shared/src/records.ts';
+import { cellTexts, cellToItem, personIds } from '../../shared/src/records.ts';
 import type { RawRecord } from '../../shared/src/records.ts';
 import { formatDate, parseDateItem } from '../../shared/src/milestones.ts';
 
@@ -16,12 +16,15 @@ export interface FlowConfig {
   /** 名称里带这些关键词的任务当作里程碑,逗号分隔 */
   milestoneKeywords: string;
   showIsolated: boolean;
+  /** 显示方式:auto 有依赖关系时画流程图,否则显示列表 */
+  viewMode?: 'auto' | 'flow' | 'list';
 }
 
 export const defaultFlowConfig: FlowConfig = {
   depMode: 'pred',
   milestoneKeywords: '必保时间点,里程碑,🌟',
   showIsolated: false,
+  viewMode: 'auto',
 };
 
 export type StatusKind = 'done' | 'doing' | 'blocked' | 'todo';
@@ -33,7 +36,11 @@ export interface FlowTask {
   kind: StatusKind;
   dateText: string;
   owner: string;
+  /** 负责人的用户 id,用来按权限过滤和催办 */
+  ownerIds: string[];
   milestone: boolean;
+  /** 非管理员视图里,别人负责、只作为上下游出现的任务(只读) */
+  external?: boolean;
 }
 
 export interface FlowEdge {
@@ -107,6 +114,7 @@ export function buildGraph(records: RawRecord[], c: FlowConfig): FlowGraph {
       kind: statusKind(status),
       dateText: date ? formatDate(date) : '',
       owner: c.ownerFieldId ? cellTexts(r.fields[c.ownerFieldId]).join('、') : '',
+      ownerIds: c.ownerFieldId ? personIds(r.fields[c.ownerFieldId]) : [],
       milestone,
     });
     order.push(r.recordId);

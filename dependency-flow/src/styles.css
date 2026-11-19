@@ -307,3 +307,222 @@
   border: 1px solid var(--df-card-border);
   box-shadow: 0 8px 28px rgba(31, 35, 41, 0.18);
 }
+
+/* ===== 选中、只读相邻任务 ===== */
+.df-node {
+  cursor: pointer;
+}
+.df-node.is-selected {
+  border-color: var(--kind);
+  box-shadow: 0 0 0 2px var(--kind), 0 8px 20px rgba(31, 35, 41, 0.16);
+}
+.df-node.is-external {
+  border-style: dashed;
+  opacity: 0.62;
+}
+
+/* ===== 记录详情面板 ===== */
+.df-detail {
+  position: absolute;
+  z-index: 7;
+  top: 64px;
+  right: 14px;
+  bottom: 14px;
+  width: min(340px, calc(100% - 28px));
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  background: var(--df-card);
+  border: 1px solid var(--df-card-border);
+  box-shadow: 0 8px 28px rgba(31, 35, 41, 0.18);
+  overflow: hidden;
+  cursor: default;
+}
+.df-detail-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 12px 10px 16px;
+  border-bottom: 1px solid var(--df-card-border);
+  position: relative;
+}
+.df-detail-head::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background: var(--kind);
+}
+.df-detail-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.df-detail-name {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.df-detail-close {
+  border: 0;
+  background: transparent;
+  color: var(--bm-text-2);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.df-detail-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 16px;
+}
+.df-detail-row {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--df-card-border);
+  font-size: 12.5px;
+}
+.df-detail-label {
+  color: var(--bm-text-2);
+}
+.df-detail-value {
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.df-detail-note {
+  padding: 10px 0;
+  font-size: 12px;
+  color: var(--bm-text-2);
+}
+.df-detail-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--df-card-border);
+}
+.df-nudge-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--df-card-border);
+  background: var(--df-bg);
+  color: var(--bm-text);
+  font: inherit;
+  font-size: 12.5px;
+}
+.df-nudge-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.df-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--df-card-border);
+  background: var(--df-card);
+  color: var(--bm-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.df-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.df-btn.is-primary {
+  background: var(--bm-primary);
+  border-color: var(--bm-primary);
+  color: #fff;
+}
+.df-btn.is-kick {
+  width: 100%;
+  background: var(--bm-warn-bg);
+  border-color: var(--bm-warn);
+  color: var(--bm-warn);
+  font-weight: 600;
+}
+.df-btn.is-kick:disabled {
+  background: transparent;
+  border-color: var(--df-card-border);
+  color: var(--bm-text-2);
+  font-weight: 400;
+}
+.df-notice {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.df-notice.is-ok {
+  color: var(--bm-success);
+  background: var(--bm-success-bg);
+}
+.df-notice.is-err {
+  color: var(--bm-danger);
+  background: var(--bm-danger-bg);
+}
+
+/* ===== 任务列表模式 ===== */
+.df-list {
+  position: absolute;
+  inset: 0;
+  padding: 64px 14px 14px;
+  overflow: auto;
+}
+.df-list table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--df-card);
+  border: 1px solid var(--df-card-border);
+  border-radius: 12px;
+  font-size: 13px;
+}
+.df-list th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  padding: 9px 12px;
+  font-weight: 500;
+  color: var(--bm-text-2);
+  background: var(--df-card);
+  border-bottom: 1px solid var(--df-card-border);
+}
+.df-list td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--df-card-border);
+}
+.df-list tbody tr {
+  cursor: pointer;
+}
+.df-list tbody tr:hover,
+.df-list tbody tr.is-selected {
+  background: var(--bm-primary-bg);
+}
+.df-list tbody tr:last-child td {
+  border-bottom: 0;
+}
+.df-list-name {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.df-detail .df-chip {
+  font-size: 12px;
+}

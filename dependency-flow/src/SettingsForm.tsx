@@ -24,6 +24,18 @@ export function SettingsForm({
       <FormItem label="数据表">
         <TableSelect tables={tables} value={config.tableId} onChange={onTable} />
       </FormItem>
+      <FormItem label="显示方式" hint="自动:有依赖关系时画流程图,没有就显示任务列表">
+        <Select
+          style={{ width: '100%' }}
+          value={config.viewMode ?? 'auto'}
+          onChange={(v) => onChange({ viewMode: v as FlowConfig['viewMode'] })}
+          optionList={[
+            { value: 'auto', label: '自动' },
+            { value: 'flow', label: '流程图' },
+            { value: 'list', label: '任务列表' },
+          ]}
+        />
+      </FormItem>
       <FormItem label="依赖字段" hint="关联到本表的字段,例如“前置依赖”">
         <FieldSelect fields={fields} types={LINK_TYPES} value={config.depFieldId} onChange={(id) => onChange({ depFieldId: id })} />
       </FormItem>

@@ -30,13 +30,13 @@ const FlagIcon = () => (
   </svg>
 );
 
-function Node({ n, dim, hot }: { n: PlacedNode; dim: boolean; hot: boolean }) {
+function Node({ n, dim, hot, selected }: { n: PlacedNode; dim: boolean; hot: boolean; selected: boolean }) {
   const t = n.task;
   const color = KIND_COLOR[t.kind];
   return (
     <foreignObject x={n.x - NODE_W / 2} y={n.y - NODE_H / 2} width={NODE_W} height={NODE_H} className="df-node-fo">
       <div
-        className={`df-node${t.milestone ? ' is-milestone' : ''}${dim ? ' is-dim' : ''}${hot ? ' is-hot' : ''}`}
+        className={`df-node${t.milestone ? ' is-milestone' : ''}${dim ? ' is-dim' : ''}${hot ? ' is-hot' : ''}${selected ? ' is-selected' : ''}${t.external ? ' is-external' : ''}`}
         style={{ ['--kind' as string]: color }}
         data-id={t.id}
       >
@@ -64,16 +64,22 @@ export function FlowChart({
   edges,
   cycleKeys,
   query,
+  selectedId,
+  onSelect,
 }: {
   layout: Layout;
   edges: FlowEdge[];
   cycleKeys: Set<string>;
   query: string;
+  selectedId: string | null;
+  onSelect(id: string | null): void;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ k: 1, x: 0, y: 0 });
   const [hover, setHover] = useState<string | null>(null);
   const drag = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+  // 拖动画布后松手不算点击
+  const moved = useRef(false);
   const fitted = useRef(false);
 
   const pos = useMemo(() => new Map(layout.nodes.map((n) => [n.task.id, n])), [layout]);
@@ -154,14 +160,23 @@ export function FlowChart({
   const onPointerDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('.df-node')) return;
     drag.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
+    moved.current = false;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!d) return;
+    if (Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) > 4) moved.current = true;
     setView((v) => ({ ...v, x: d.vx + e.clientX - d.x, y: d.vy + e.clientY - d.y }));
   };
   const onPointerUp = () => (drag.current = null);
+
+  const onClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('.df-zoom')) return;
+    const el = (e.target as HTMLElement).closest('.df-node') as HTMLElement | null;
+    if (el) onSelect(el.dataset.id ?? null);
+    else if (!moved.current) onSelect(null);
+  };
 
   const onOver = (e: React.MouseEvent) => {
     const el = (e.target as HTMLElement).closest('.df-node') as HTMLElement | null;
@@ -175,6 +190,7 @@ export function FlowChart({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onClick={onClick}
       onMouseOver={onOver}
       onMouseLeave={() => setHover(null)}
     >
@@ -221,7 +237,7 @@ export function FlowChart({
             {layout.nodes.map((n) => {
               const id = n.task.id;
               const dim = (chain ? !chain.all.has(id) : false) || (matched ? !matched.has(id) : false);
-              return <Node key={id} n={n} dim={dim} hot={id === hover} />;
+              return <Node key={id} n={n} dim={dim} hot={id === hover} selected={id === selectedId} />;
             })}
           </g>
         </g>

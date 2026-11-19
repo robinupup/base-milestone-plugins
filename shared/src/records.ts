@@ -45,3 +45,14 @@ export function distinctValues(records: RawRecord[], fieldId: string): string[] 
   for (const r of records) for (const t of cellTexts(r.fields[fieldId])) set.add(t);
   return [...set];
 }
+
+/** 人员字段里的用户 id 列表;单元格是 [{id,name,...}] 或单个对象 */
+export function personIds(v: unknown): string[] {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.flatMap(personIds);
+  if (typeof v === 'object') {
+    const id = (v as { id?: unknown }).id;
+    return typeof id === 'string' && id ? [id] : [];
+  }
+  return [];
+}

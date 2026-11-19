@@ -10,7 +10,8 @@ export type Theme = 'LIGHT' | 'DARK';
 export interface Host {
   state: HostState;
   loadConfig(): Promise<Partial<FlowConfig> | null>;
-  saveConfig(c: FlowConfig): Promise<boolean>;
+  /** shared=true:同时写入多维表格里的共享存储,让别的成员打开同一个视图时拿到同样的设置(只有管理员会这么做) */
+  saveConfig(c: FlowConfig, opts?: { shared?: boolean }): Promise<boolean>;
   setRendered(): Promise<void>;
   getTheme(): Promise<Theme>;
   onThemeChange(cb: (t: Theme) => void): () => void;
@@ -34,15 +35,47 @@ const localConfig = async (): Promise<Partial<FlowConfig> | null> =>
 const saveLocalConfig = async (c: FlowConfig) =>
   writeConfig(localStorage, await currentViewId(), window.location.pathname, c);
 
+const SHARED_KEY = 'dependencyFlowConfig';
+
+/** 视图插件的共享设置:存在 bitable.bridge 的持久化数据里,所有成员读到同一份。取不到或不支持时返回 null */
+async function readShared(): Promise<Partial<FlowConfig> | null> {
+  if (isMock()) return null;
+  try {
+    const bridge = (bitable as any).bridge;
+    const data = (await Promise.race([
+      bridge?.getData?.(),
+      new Promise<undefined>((r) => setTimeout(() => r(undefined), 1500)),
+    ])) as Record<string, unknown> | undefined | null;
+    const v = data?.[SHARED_KEY];
+    return v && typeof v === 'object' ? (v as Partial<FlowConfig>) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeShared(c: FlowConfig): Promise<void> {
+  if (isMock()) return;
+  try {
+    const bridge = (bitable as any).bridge;
+    if (!bridge?.setData) return;
+    const old = ((await bridge.getData?.()) as Record<string, unknown> | undefined | null) ?? {};
+    await bridge.setData({ ...old, [SHARED_KEY]: c });
+  } catch {
+    /* 没有编辑权限或旧版本不支持时,只保留本地配置 */
+  }
+}
+
 const systemTheme = (): Theme => (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'DARK' : 'LIGHT');
 
 /** 数据表视图 / 独立打开 / 本地 mock:配置存在 localStorage */
 function tableViewHost(): Host {
   return {
     state: 'TableView',
-    loadConfig: () => localConfig(),
-    saveConfig: async (c) => {
+    // 管理员保存过共享设置时优先用它;否则用本机上这个视图自己的设置
+    loadConfig: async () => (await readShared()) ?? (await localConfig()),
+    saveConfig: async (c, opts) => {
       await saveLocalConfig(c);
+      if (opts?.shared) await writeShared(c);
       return true;
     },
     setRendered: async () => {},

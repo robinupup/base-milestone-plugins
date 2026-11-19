@@ -1,0 +1,105 @@
+/* 合并卡片:宽屏左右分栏,窄屏上下分栏,很小的格子只留进度条 + 一行下一个里程碑 */
+.mo-root {
+  height: 100%;
+  container-type: size;
+  box-sizing: border-box;
+}
+.mo-card {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
+}
+.mo-progress,
+.mo-next {
+  min-width: 0;
+  min-height: 0;
+  /* 各自成为容器,里面的 cq 单位和 @container 规则按自己这一块的大小缩放 */
+  container-type: size;
+}
+.mo-next {
+  border-top: 1px solid var(--bm-border);
+}
+.mo-next-line {
+  display: none;
+}
+
+/* 宽而矮:左右分栏 */
+@container (min-width: 520px) and (max-height: 420px) {
+  .mo-card {
+    grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+    grid-template-rows: 1fr;
+  }
+  .mo-next {
+    border-top: 0;
+    border-left: 1px solid var(--bm-border);
+  }
+}
+
+/* 小格子:上面进度条,下面一行下一个里程碑 */
+@container (max-height: 300px) and (max-width: 519px), (max-height: 190px) {
+  .mo-card {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .mo-next {
+    display: none;
+  }
+  .mo-next-line {
+    display: block;
+    border-top: 1px solid var(--bm-border);
+  }
+}
+
+/* 一行版 */
+.nl-line {
+  --accent: var(--bm-primary);
+  --accent-bg: var(--bm-primary-bg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px clamp(12px, 4.5cqw, 28px) 9px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--bm-text-2);
+}
+.nl-line.nl-soon,
+.nl-line.nl-today {
+  --accent: var(--bm-warn);
+  --accent-bg: var(--bm-warn-bg);
+}
+.nl-line .nm-flag {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.nl-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--bm-text);
+  font-weight: 500;
+}
+.nl-date {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  font-weight: 600;
+}
+.nl-badge {
+  padding: 0 8px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  font-weight: 600;
+}
+
+.mo-next-line {
+  overflow: hidden;
+}
+/* 很窄时去掉徽标,日期保留 */
+@container (max-width: 260px) {
+  .nl-badge {
+    display: none;
+  }
+}
