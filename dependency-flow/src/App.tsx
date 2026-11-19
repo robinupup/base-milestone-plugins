@@ -13,7 +13,7 @@ import { createHost } from './host.ts';
 import type { Theme } from './host.ts';
 import { layoutGraph } from './layout.ts';
 import { createNudger } from './nudge.ts';
-import { canNudge, isMine, nudgeWaitMs, restrictToOwner } from './policy.ts';
+import { canNudge, isMine, modeFromViewName, nudgeWaitMs, restrictToOwner } from './policy.ts';
 import type { Access, NudgeLog } from './policy.ts';
 import { SettingsForm } from './SettingsForm.tsx';
 import { TaskList } from './TaskList.tsx';
@@ -55,6 +55,7 @@ export function App() {
   // 当前用户与权限;管理员可以临时"以普通用户身份预览"
   const [access, setAccess] = useState<Access>({ userId: null, isAdmin: false });
   const [previewAsUser, setPreviewAsUser] = useState(false);
+  const [viewName, setViewName] = useState<string | undefined>();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [logs, setLogs] = useState<NudgeLog[]>([]);
   const [nudgeBusy, setNudgeBusy] = useState(false);
@@ -83,6 +84,7 @@ export function App() {
         // 当前选中的表不一定是项目表(例如停在"人员路由"),已保存配置之外优先选名字像项目的表
         const tableId = saved?.tableId ?? (isTableView ? cur : pickTable(list)?.id ?? cur);
         setConfig({ ...defaultFlowConfig, ...saved, tableId });
+        setViewName(await source.currentViewName().catch(() => undefined));
         const acc = await accessP;
         dlog('flow access', acc);
         setAccess(acc);
@@ -167,12 +169,12 @@ export function App() {
 
   // 先按全部数据建图,再按权限过滤;列表模式总是包含没有依赖的任务
   const rawGraph = useMemo(() => buildGraph(records ?? [], { ...config, showIsolated: true }), [records, config]);
+  // 显示方式:设置里明确选了就用它;否则看视图名字;再否则有依赖关系画流程图,没有就列表
   const mode: 'flow' | 'list' =
     config.viewMode === 'flow' || config.viewMode === 'list'
       ? config.viewMode
-      : rawGraph.edges.length > 0 || !records
-        ? 'flow'
-        : 'list';
+      : (modeFromViewName(isTableView ? viewName : undefined) ??
+        (rawGraph.edges.length > 0 || !records ? 'flow' : 'list'));
   const fullGraph = useMemo(
     () => (mode === 'list' ? rawGraph : buildGraph(records ?? [], config)),
     [mode, rawGraph, records, config],

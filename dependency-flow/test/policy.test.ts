@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildGraph, defaultFlowConfig } from '../src/graph.ts';
 import type { FlowGraph } from '../src/graph.ts';
-import { canNudge, formatWait, lastNudgeAt, nudgeWaitMs, restrictToOwner } from '../src/policy.ts';
+import { canNudge, formatWait, lastNudgeAt, modeFromViewName, nudgeWaitMs, restrictToOwner } from '../src/policy.ts';
 import { personIds } from '../../shared/src/records.ts';
 
 const text = (s: string) => [{ type: 'text', text: s }];
@@ -93,4 +93,12 @@ test('催办冷却:同一人同一任务 1 小时内不能再催', () => {
   assert.equal(formatWait(50 * 60_000), '50 分钟');
   assert.equal(formatWait(75 * 60_000), '1 小时 15 分钟');
   assert.equal(formatWait(60 * 60_000), '1 小时');
+});
+
+test('modeFromViewName:按视图名推断显示方式', () => {
+  assert.equal(modeFromViewName('我的任务(列表)'), 'list');
+  assert.equal(modeFromViewName('任务 List'), 'list');
+  assert.equal(modeFromViewName('依赖关系流程图'), 'flow');
+  assert.equal(modeFromViewName('我的任务'), undefined);
+  assert.equal(modeFromViewName(undefined), undefined);
 });

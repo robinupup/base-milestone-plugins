@@ -86,3 +86,14 @@ export function formatWait(ms: number): string {
   if (min < 60) return `${min} 分钟`;
   return min % 60 === 0 ? `${min / 60} 小时` : `${Math.floor(min / 60)} 小时 ${min % 60} 分钟`;
 }
+
+/**
+ * 按视图名字推断显示方式:名字里有「列表」「list」用任务列表,有「流程」「依赖」「flow」用流程图。
+ * 这样管理员只要把视图命名好,所有成员打开都是同样的显示方式,不依赖每个人本机的设置。
+ */
+export function modeFromViewName(name: string | undefined): 'flow' | 'list' | undefined {
+  if (!name) return undefined;
+  if (/列表|list/i.test(name)) return 'list';
+  if (/流程|依赖|flow/i.test(name)) return 'flow';
+  return undefined;
+}

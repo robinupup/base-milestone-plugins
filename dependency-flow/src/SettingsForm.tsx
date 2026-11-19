@@ -24,7 +24,7 @@ export function SettingsForm({
       <FormItem label="数据表">
         <TableSelect tables={tables} value={config.tableId} onChange={onTable} />
       </FormItem>
-      <FormItem label="显示方式" hint="自动:有依赖关系时画流程图,没有就显示任务列表">
+      <FormItem label="显示方式" hint="自动:视图名带「列表」显示任务列表,带「流程」「依赖」画流程图;否则有依赖关系就画流程图">
         <Select
           style={{ width: '100%' }}
           value={config.viewMode ?? 'auto'}

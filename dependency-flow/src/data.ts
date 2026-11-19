@@ -12,6 +12,8 @@ export interface Source {
   subscribe(tableId: string, cb: () => void, onFields?: () => void): () => void;
   /** 当前在界面里选中的数据表(数据表视图里就是当前表) */
   currentTableId(): Promise<string | undefined>;
+  /** 当前视图的名字(数据表视图里用来推断显示方式),取不到时为 undefined */
+  currentViewName(): Promise<string | undefined>;
 }
 
 export const isMock = () => new URLSearchParams(window.location.search).has('mock');
@@ -22,6 +24,7 @@ const mockSource: Source = {
   loadRecords: async () => MOCK_RECORDS,
   subscribe: () => () => {},
   currentTableId: async () => MOCK_TABLES[0].id,
+  currentViewName: async () => new URLSearchParams(window.location.search).get('viewName') ?? undefined,
 };
 
 const realSource: Source = {
@@ -61,6 +64,17 @@ const realSource: Source = {
     try {
       const sel = await bitable.base.getSelection();
       return sel.tableId ?? undefined;
+    } catch {
+      return undefined;
+    }
+  },
+  async currentViewName() {
+    try {
+      const sel = await bitable.base.getSelection();
+      if (!sel.tableId || !sel.viewId) return undefined;
+      const table = await bitable.base.getTableById(sel.tableId);
+      const views = await (table as any).getViewMetaList();
+      return (views as Array<{ id: string; name: string }>).find((v) => v.id === sel.viewId)?.name;
     } catch {
       return undefined;
     }
