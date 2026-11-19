@@ -4,33 +4,60 @@
   box-sizing: border-box;
 }
 .mp-card {
+  --th: clamp(8px, 4.8cqmin, 16px);
+  --flag-w: clamp(16px, 7.4cqmin, 26px);
+  --flag-h: clamp(18px, 8.3cqmin, 29px);
   height: 100%;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  padding: clamp(8px, 4cqmin, 20px) clamp(10px, 4cqw, 28px);
+  padding: clamp(8px, 4cqmin, 20px) clamp(12px, 4.5cqw, 28px);
   gap: clamp(2px, 2cqh, 10px);
 }
 .mp-empty {
   align-items: center;
   justify-content: center;
 }
+
+/* ===== 标题区:左边标题 + 完成数,右边大号完成率 ===== */
 .mp-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
+}
+.mp-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 .mp-title {
-  font-size: clamp(12px, 5.5cqmin, 16px);
+  font-size: clamp(12px, 5.2cqmin, 15px);
+  font-weight: 600;
+  color: var(--bm-text);
+  letter-spacing: 0.01em;
+}
+.mp-sub {
+  font-size: clamp(10px, 4.4cqmin, 12.5px);
   color: var(--bm-text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .mp-percent {
-  font-size: clamp(20px, 11cqmin, 44px);
-  font-weight: 600;
+  font-size: clamp(24px, 13cqmin, 52px);
+  font-weight: 700;
   line-height: 1;
+  letter-spacing: -0.02em;
   color: var(--bm-primary);
   font-variant-numeric: tabular-nums;
+}
+.mp-percent small {
+  margin-left: 1px;
+  font-size: 0.45em;
+  font-weight: 600;
+  letter-spacing: 0;
+  opacity: 0.8;
 }
 .mp-percent.is-complete {
   color: var(--bm-success);
@@ -46,7 +73,7 @@
   text-align: center;
 }
 
-/* 轨道区:进度条在正中,里程碑标签分别排在上、下两侧,避免挤在一起 */
+/* ===== 轨道区:进度条在下方,里程碑小旗立在条上,日期写在条下 ===== */
 .mp-lane {
   position: relative;
   flex: 1;
@@ -60,8 +87,8 @@
   position: absolute;
   left: 0;
   right: 0;
-  top: 50%;
-  height: clamp(8px, 4cqmin, 14px);
+  top: 64%;
+  height: var(--th);
   transform: translateY(-50%);
   border-radius: 999px;
   background: var(--bm-track);
@@ -70,46 +97,72 @@
 .mp-fill {
   height: 100%;
   border-radius: 999px;
-  background: var(--bm-primary);
-  transition: width 0.4s ease;
+  background-color: var(--bm-primary);
+  /* 顶部一层很淡的高光,让进度条有质感,深浅主题都适用 */
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 65%);
+  transition: width 0.5s ease;
 }
 .mp-fill.is-complete {
-  background: var(--bm-success);
+  background-color: var(--bm-success);
 }
 
-.mp-track {
-  top: 64%;
-}
-/* 里程碑小红旗:旗杆底部落在进度条上边缘,文字只在悬浮时显示 */
+/* 里程碑:旗杆底部落在进度条上边缘,条上有一个同色圆点标出准确位置 */
 .mp-ms {
+  --tone: var(--bm-upcoming);
   position: absolute;
-  bottom: calc(36% + clamp(8px, 4cqmin, 14px) / 2 - 1px);
+  bottom: calc(36% + var(--th) / 2 - 1px);
   width: 0;
   height: 0;
 }
+.mp-ms.tone-done,
+.mp-legend .tone-done {
+  --tone: var(--bm-success);
+}
+.mp-ms.tone-soon,
+.mp-legend .tone-soon {
+  --tone: var(--bm-warn);
+}
+.mp-ms.tone-overdue,
+.mp-legend .tone-overdue {
+  --tone: var(--bm-danger);
+}
+.mp-ms.tone-upcoming,
+.mp-legend .tone-upcoming {
+  --tone: var(--bm-upcoming);
+}
 .mp-flag {
   position: absolute;
-  left: calc(clamp(15px, 6.5cqmin, 24px) * -0.16);
+  left: calc(var(--flag-w) * -0.16);
   bottom: 0;
-  width: clamp(15px, 6.5cqmin, 24px);
-  height: clamp(17px, 7.3cqmin, 27px);
+  width: var(--flag-w);
+  height: var(--flag-h);
   overflow: visible;
   pointer-events: auto;
   cursor: default;
 }
 .mp-flag-pole {
   stroke: var(--bm-text-2);
+  opacity: 0.7;
 }
 .mp-flag-cloth {
-  fill: #f54a45;
+  fill: var(--tone);
 }
-.mp-ms.is-done .mp-flag-cloth {
-  fill: var(--bm-success);
+.mp-dot {
+  position: absolute;
+  left: 0;
+  bottom: calc(var(--th) / -2 + 1px);
+  width: calc(var(--th) * 0.62);
+  height: calc(var(--th) * 0.62);
+  transform: translate(-50%, 50%);
+  border-radius: 50%;
+  background: var(--tone);
+  box-shadow: 0 0 0 2px var(--bm-surface);
+  pointer-events: none;
 }
 .mp-ms-date {
   position: absolute;
   left: 0;
-  top: calc(clamp(8px, 4cqmin, 14px) + 6px);
+  top: calc(var(--th) + 6px);
   transform: translateX(-50%);
   font-size: clamp(9px, 4cqmin, 11px);
   color: var(--bm-text-2);
@@ -117,33 +170,77 @@
   white-space: nowrap;
 }
 
-/* 悬浮提示 */
+/* ===== 悬浮提示:名称 + 日期 · 状态 ===== */
 .mp-tip {
   position: absolute;
   left: 0;
-  bottom: calc(clamp(17px, 7.3cqmin, 27px) + 6px);
+  bottom: calc(var(--flag-h) + 8px);
   transform: translateX(-50%);
   display: none;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px 10px;
-  border-radius: 6px;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
   font-size: 12px;
   line-height: 1.4;
   white-space: nowrap;
   max-width: 260px;
   color: #fff;
-  background: rgba(31, 35, 41, 0.92);
+  background: rgba(31, 35, 41, 0.94);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
   z-index: 10;
   pointer-events: none;
 }
-.mp-tip b {
+/* 靠近两端时让提示贴边展开,避免被容器裁掉 */
+.mp-ms.at-left .mp-tip {
+  left: -12px;
+  transform: none;
+}
+.mp-ms.at-right .mp-tip {
+  left: auto;
+  right: -12px;
+  transform: none;
+}
+.mp-tip-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.mp-tip-row b {
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 600;
+}
+.mp-tip-meta {
+  font-size: 11px;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+.mp-tip-meta.tone-done {
+  color: #5fe08a;
+}
+.mp-tip-meta.tone-soon {
+  color: #ffb866;
+}
+.mp-tip-meta.tone-overdue {
+  color: #ff8c88;
+}
+.mp-tip-meta.tone-upcoming {
+  color: inherit;
 }
 :root[data-theme='dark'] .mp-tip {
-  background: rgba(240, 241, 242, 0.95);
+  background: rgba(244, 245, 247, 0.97);
   color: #1f2329;
+}
+:root[data-theme='dark'] .mp-tip-meta.tone-done {
+  color: #0a8f3c;
+}
+:root[data-theme='dark'] .mp-tip-meta.tone-soon {
+  color: #c26400;
+}
+:root[data-theme='dark'] .mp-tip-meta.tone-overdue {
+  color: #d9342f;
 }
 .mp-ms:hover {
   z-index: 20;
@@ -152,16 +249,34 @@
   display: flex;
 }
 
-.mp-foot {
-  font-size: clamp(10px, 4.6cqmin, 13px);
+/* ===== 图例:只列出当前出现过的阶段 ===== */
+.mp-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 14px;
+  font-size: clamp(10px, 4.2cqmin, 12px);
   color: var(--bm-text-2);
-  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.mp-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.mp-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone);
 }
 
-/* 小尺寸(接近 2x2 格):只保留百分比、进度条和节点圆点 */
+/* 小尺寸(接近 2x2 格):只保留百分比、进度条和里程碑旗 */
 @container (max-width: 280px) {
   .mp-ms-date,
-  .mp-foot,
+  .mp-legend,
+  .mp-sub,
   .mp-title {
     display: none;
   }
@@ -171,7 +286,8 @@
 }
 @container (max-height: 150px) {
   .mp-ms-date,
-  .mp-foot {
+  .mp-legend,
+  .mp-sub {
     display: none;
   }
 }

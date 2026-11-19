@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { layoutPositions, t } from '@shared';
-import type { Milestone } from '@shared';
+import { daysBetween, layoutPositions, milestoneTone, t } from '@shared';
+import type { Milestone, MilestoneTone } from '@shared';
 
-/** 里程碑小红旗:旗杆底部落在进度条上 */
+/** 里程碑小红旗:旗杆底部落在进度条上,颜色随阶段变化(见样式里的 tone-*) */
 const Flag = () => (
   <svg className="mp-flag" viewBox="0 0 16 18" aria-hidden="true">
     <path className="mp-flag-pole" d="M2.5 1v17" strokeWidth="1.5" strokeLinecap="round" fill="none" />
@@ -26,6 +26,16 @@ function visibleDates(list: Milestone[], positions: Map<string, number>, width: 
 
 const shortDate = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
 
+/** 悬浮提示里的状态文字:已完成 / 还有 N 天 / 已逾期 N 天 */
+function toneText(tone: MilestoneTone, date: Date, today: Date): string {
+  if (tone === 'done') return t('ms.done');
+  const days = daysBetween(today, date);
+  if (tone === 'overdue') return t('ms.overdueDays', { n: -days });
+  return days === 0 ? t('ms.dueToday') : t('ms.inDays', { n: days });
+}
+
+const TONE_ORDER: MilestoneTone[] = ['done', 'soon', 'overdue', 'upcoming'];
+
 interface Props {
   configured: boolean;
   loading?: boolean;
@@ -33,6 +43,7 @@ interface Props {
   done: number;
   percent: number;
   milestones: Milestone[];
+  today: Date;
   showPercent: boolean;
   showDates: boolean;
 }
@@ -44,6 +55,7 @@ export function ProgressCard({
   done,
   percent,
   milestones,
+  today,
   showPercent,
   showDates,
 }: Props) {
@@ -76,14 +88,19 @@ export function ProgressCard({
     else groups.push([m]);
   }
   const dateShown = showDates ? visibleDates(groups.map((g) => g[0]), positions, laneWidth) : new Set<string>();
+  const present = new Set<MilestoneTone>();
 
   return (
     <div className="mp-card">
       <div className="mp-head">
-        <span className="mp-title">{t('progress.title')}</span>
+        <div className="mp-head-text">
+          <span className="mp-title">{t('progress.title')}</span>
+          <span className="mp-sub">{t('progress.tasksDone', { done, total })}</span>
+        </div>
         {showPercent ? (
           <span className={`mp-percent${complete ? ' is-complete' : ''}`} data-testid="percent">
-            {percent}%
+            {percent}
+            <small>%</small>
           </span>
         ) : null}
       </div>
@@ -102,24 +119,34 @@ export function ProgressCard({
 
         {groups.map((g) => {
           const first = g[0];
+          const pos = positions.get(first.id) ?? 50;
           const allDone = g.every((m) => m.done);
+          // 同一天里只要有没完成的,按没完成的那个算阶段
+          const tone = milestoneTone(allDone, first.date, today);
+          present.add(tone);
+          const edge = pos < 22 ? ' at-left' : pos > 78 ? ' at-right' : '';
           return (
             <div
               key={first.id}
-              className={`mp-ms ${allDone ? 'is-done' : 'is-pending'}`}
-              style={{ left: `${positions.get(first.id) ?? 50}%` }}
+              className={`mp-ms tone-${tone}${edge}`}
+              style={{ left: `${pos}%` }}
               data-testid="milestone"
             >
               <Flag />
+              <i className="mp-dot" />
               {dateShown.has(first.id) ? <span className="mp-ms-date">{shortDate(first.date)}</span> : null}
               <span className="mp-tip" role="tooltip">
-                <span>{first.dateText}</span>
-                {g.map((m) => (
-                  <b key={m.id}>
-                    {m.done ? '✓ ' : ''}
-                    {m.name}
-                  </b>
-                ))}
+                {g.map((m) => {
+                  const mt = milestoneTone(m.done, m.date, today);
+                  return (
+                    <span key={m.id} className="mp-tip-row">
+                      <b>{m.name}</b>
+                      <span className={`mp-tip-meta tone-${mt}`}>
+                        {m.dateText} · {toneText(mt, m.date, today)}
+                      </span>
+                    </span>
+                  );
+                })}
               </span>
             </div>
           );
@@ -127,7 +154,18 @@ export function ProgressCard({
         {!milestones.length ? <div className="mp-lane-empty">{t('progress.empty')}</div> : null}
       </div>
 
-      <div className="mp-foot">{t('progress.tasksDone', { done, total })}</div>
+      {present.size ? (
+        <div className="mp-legend">
+          {TONE_ORDER.filter((k) => present.has(k)).map((k) => (
+            <span key={k} className={`tone-${k}`}>
+              <i />
+              {t(`ms.${k}`)}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="mp-legend" />
+      )}
     </div>
   );
 }

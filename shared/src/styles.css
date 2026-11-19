@@ -8,6 +8,13 @@
   --bm-danger: #f54a45;
   --bm-border: #dee0e3;
   --bm-surface: #ffffff;
+  /* 语义色的浅底,用于徽标和提示条 */
+  --bm-primary-bg: rgba(51, 112, 255, 0.1);
+  --bm-success-bg: rgba(0, 180, 42, 0.12);
+  --bm-warn-bg: rgba(255, 136, 0, 0.14);
+  --bm-danger-bg: rgba(245, 74, 69, 0.1);
+  /* 还没到期的里程碑:中性灰蓝 */
+  --bm-upcoming: #8f98a8;
 }
 :root[data-theme='dark'] {
   --bm-text: #f0f1f2;
@@ -19,6 +26,11 @@
   --bm-danger: #ff6a66;
   --bm-border: #4a4f57;
   --bm-surface: #1b1d21;
+  --bm-primary-bg: rgba(76, 136, 255, 0.18);
+  --bm-success-bg: rgba(45, 194, 107, 0.18);
+  --bm-warn-bg: rgba(255, 154, 46, 0.2);
+  --bm-danger-bg: rgba(255, 106, 102, 0.18);
+  --bm-upcoming: #8a93a3;
 }
 
 html,

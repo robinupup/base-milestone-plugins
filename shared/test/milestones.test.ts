@@ -117,3 +117,15 @@ test('layoutPositions 按日期比例排布', () => {
   assert.equal(p.get('m-3'), 90);
   assert.equal(layoutPositions(list.slice(0, 1)).get('m-1'), 50);
 });
+
+import { milestoneTone, SOON_DAYS } from '../src/milestones.ts';
+
+test('milestoneTone 按完成与否、距今天数分级', () => {
+  const today = new Date(2026, 10, 19, 15, 30); // 2026-11-19 下午,时间部分不影响按天计算
+  const day = (offset: number) => new Date(2026, 10, 19 + offset);
+  assert.equal(milestoneTone(true, day(-30), today), 'done');
+  assert.equal(milestoneTone(false, day(-1), today), 'overdue');
+  assert.equal(milestoneTone(false, day(0), today), 'soon');
+  assert.equal(milestoneTone(false, day(SOON_DAYS), today), 'soon');
+  assert.equal(milestoneTone(false, day(SOON_DAYS + 1), today), 'upcoming');
+});

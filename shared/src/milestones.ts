@@ -212,6 +212,19 @@ export function daysBetween(from: Date, to: Date): number {
   return Math.round((startOfDay(to).getTime() - startOfDay(from).getTime()) / DAY_MS);
 }
 
+/** 里程碑所处阶段,用来决定颜色:已完成 / 已逾期 / 即将到期(含今天) / 未到期 */
+export type MilestoneTone = 'done' | 'overdue' | 'soon' | 'upcoming';
+
+/** 距今天数不超过这个值视为"即将到期" */
+export const SOON_DAYS = 7;
+
+export function milestoneTone(done: boolean, date: Date, today: Date): MilestoneTone {
+  if (done) return 'done';
+  const days = daysBetween(today, date);
+  if (days < 0) return 'overdue';
+  return days <= SOON_DAYS ? 'soon' : 'upcoming';
+}
+
 export interface NextMilestoneResult {
   next: Milestone | null;
   /** 距今天数,0 为今天 */

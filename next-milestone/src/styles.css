@@ -5,67 +5,166 @@
   box-sizing: border-box;
 }
 .nm-card {
+  --accent: var(--bm-primary);
+  --accent-bg: var(--bm-primary-bg);
   height: 100%;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(2px, 2.5cqh, 10px);
-  padding: 4cqmin;
-  text-align: center;
+  align-items: flex-start;
+  gap: clamp(2px, 2cqh, 8px);
+  padding: clamp(10px, 5cqmin, 24px) clamp(12px, 6cqw, 28px);
   overflow: hidden;
 }
+.nm-card.nm-soon {
+  --accent: var(--bm-warn);
+  --accent-bg: var(--bm-warn-bg);
+}
+.nm-card.nm-today {
+  --accent: var(--bm-warn);
+  --accent-bg: var(--bm-warn);
+}
+.nm-card.nm-empty {
+  align-items: flex-start;
+}
+
+/* 标题:弱化,只作为说明 */
 .nm-title {
   display: flex;
   align-items: center;
-  gap: 0.3em;
-  font-size: clamp(11px, 6cqmin, 16px);
+  gap: 0.35em;
+  font-size: clamp(11px, 5.2cqmin, 14px);
+  font-weight: 500;
   color: var(--bm-text-2);
 }
 .nm-flag {
+  width: 1.2em;
+  height: 1.2em;
+  flex: none;
+}
+
+/* 主体:日期最醒目,其次是名称,再是剩余天数徽标 */
+.nm-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: clamp(2px, 1.6cqh, 8px);
+}
+.nm-date {
+  font-size: clamp(22px, min(17cqmin, 15cqw), 60px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.nm-card.nm-today .nm-date {
+  color: var(--bm-warn);
+}
+.nm-year {
+  margin-top: -2px;
+  font-size: clamp(10px, 4.4cqmin, 13px);
+  color: var(--bm-text-2);
+}
+.nm-name {
+  max-width: 100%;
+  margin-top: clamp(2px, 1.2cqh, 6px);
+  font-size: clamp(12px, 6.4cqmin, 18px);
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--bm-text);
+  /* 名称可能很长:最多两行,超出省略 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.nm-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: clamp(2px, 1.4cqh, 6px);
+  padding: 0.18em 0.8em;
+  border-radius: 999px;
+  font-size: clamp(11px, 5.4cqmin, 15px);
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--accent);
+  background: var(--accent-bg);
+  white-space: nowrap;
+}
+.nm-card.nm-today .nm-badge {
+  color: #fff;
+}
+
+/* 没有后续里程碑 */
+.nm-none,
+.nm-hint {
+  font-size: clamp(12px, 6.4cqmin, 16px);
+  color: var(--bm-text-2);
+}
+.nm-none {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.nm-check-icon {
+  width: clamp(26px, 14cqmin, 44px);
+  height: clamp(26px, 14cqmin, 44px);
+  color: var(--bm-success);
+  opacity: 0.9;
+}
+.nm-hint {
+  margin: auto 0;
+}
+
+/* 逾期提醒:柔和的提示条,不再只是一行红字 */
+.nm-overdue {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 0.4em 0.75em;
+  border-radius: 8px;
+  font-size: clamp(10px, 4.6cqmin, 12.5px);
+  line-height: 1.35;
+  color: var(--bm-danger);
+  background: var(--bm-danger-bg);
+}
+.nm-overdue span {
+  min-width: 0;
+}
+.nm-warn-icon {
   width: 1.15em;
   height: 1.15em;
   flex: none;
 }
-.nm-date {
-  /* 10 个字符的日期要在窄容器里放得下,所以同时受宽度约束 */
-  font-size: clamp(18px, min(15cqmin, 11cqw), 64px);
-  font-weight: 600;
-  line-height: 1.15;
-  font-variant-numeric: tabular-nums;
-  color: var(--bm-primary);
-}
-.nm-today .nm-date,
-.nm-today .nm-days {
-  color: var(--bm-warn);
-}
-.nm-name {
-  max-width: 100%;
-  font-size: clamp(12px, 7.5cqmin, 22px);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.nm-days {
-  font-size: clamp(11px, 6cqmin, 16px);
-  color: var(--bm-text-2);
-}
-.nm-none,
-.nm-hint {
-  font-size: clamp(12px, 7cqmin, 18px);
-  color: var(--bm-text-2);
-}
-.nm-overdue {
-  margin-top: 2px;
-  font-size: clamp(10px, 5cqmin, 13px);
-  color: var(--bm-danger);
-}
-/* 容器太矮时隐藏次要信息 */
-@container (max-height: 150px) {
+
+/* 容器太矮(接近 2x2 格)时,只保留日期和剩余天数 */
+@container (max-height: 170px) {
   .nm-title-text,
-  .nm-days,
+  .nm-year,
+  .nm-name,
   .nm-overdue {
     display: none;
+  }
+  .nm-title {
+    display: none;
+  }
+}
+/* 容器很窄时徽标独占一行也不换行溢出 */
+@container (max-width: 160px) {
+  .nm-card {
+    align-items: center;
+  }
+  .nm-body {
+    align-items: center;
+    text-align: center;
   }
 }

@@ -65,6 +65,7 @@ export function App() {
       done={view.done}
       percent={view.percent}
       milestones={view.milestones}
+      today={today}
       showPercent={config.showPercent}
       showDates={config.showDates}
     />
