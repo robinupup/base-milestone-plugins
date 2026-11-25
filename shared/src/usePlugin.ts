@@ -7,6 +7,7 @@ import type { Bridge, FieldInfo, PluginState, TableInfo, ThemeMode } from './bri
 import { buildLayout, COLUMN_ORDER } from './milestones';
 import { filterKeyOf } from './conditions';
 import { filterByKeys, rowKey, visibleKeys } from './records';
+import { bindingsStale, clearBindings, pickTable } from './rebind';
 import type { ColumnKey, DataRows, SourceConfig } from './milestones';
 
 // SDK FieldType 数值
@@ -100,10 +101,6 @@ export async function smartFill(b: Bridge, c: SourceConfig): Promise<Partial<Sou
   return patch;
 }
 
-/** 有多张表时,优先选名字像"项目/任务"的表 */
-const pickTable = (list: TableInfo[]) =>
-  list.find((t) => /项目|任务|事件|计划|task|project|plan/i.test(t.name)) ?? list[0];
-
 /** 保存到仪表盘的配置:dataConditions 是"可见记录探针",customConfig 存完整配置 */
 function makePayload<C extends SourceConfig>(c: C, buildConditions: (c: C) => IDataCondition[]): IConfig {
   const key = filterKeyOf(c);
@@ -114,6 +111,50 @@ function makePayload<C extends SourceConfig>(c: C, buildConditions: (c: C) => ID
 }
 
 /** 旧版本保存的 dataConditions 有多个分组,getData 会报错、也拿不到筛选结果;读到时自动升级成探针格式 */
+/**
+ * 整库复制后 customConfig 里还是旧表、旧字段的 id,getTableById 会抛 table not found。
+ * 这时改绑到当前多维表格里的项目表,并按字段名重新选择。
+ */
+async function rebindIfStale<C extends SourceConfig>(
+  b: Bridge,
+  c: C,
+  buildConditions: (c: C) => IDataCondition[],
+  autoStatus: boolean,
+): Promise<C> {
+  const tables = await b.getTables();
+  let fields: FieldInfo[] | null = null;
+  if (c.tableId && tables.some((t) => t.id === c.tableId)) {
+    try {
+      fields = await b.getFields(c.tableId);
+    } catch (e) {
+      dlog('getFields for stale check failed', e);
+    }
+  }
+  const why = bindingsStale(c, tables, fields);
+  if (!why) return c;
+  const target = why === 'table' ? pickTable(tables) : tables.find((t) => t.id === c.tableId);
+  if (!target) return c;
+  dlog('rebind stale config', why, c.tableId, '->', target.id, target.name);
+  let next = clearBindings(c, target.id);
+  const fl = why === 'fields' && fields ? fields : await b.getFields(target.id);
+  next = autoPick(next, fl, { status: autoStatus });
+  const patch = await smartFill(b, next).catch((e) => {
+    dlog('rebind smartFill failed', e);
+    return {} as Partial<SourceConfig>;
+  });
+  next = { ...next, ...patch };
+  try {
+    const ok = await Promise.race([
+      b.saveConfig(makePayload(next, buildConditions)),
+      new Promise<boolean>((_, reject) => setTimeout(() => reject(new Error('saveConfig timeout')), 8000)),
+    ]);
+    dlog('rebind saved', ok);
+  } catch (e) {
+    dlog('rebind save failed', String((e as Error)?.message ?? e));
+  }
+  return next;
+}
+
 function needsUpgrade(saved: IConfig, want: IDataCondition[]): boolean {
   if (!want.length) return false;
   const have = saved.dataConditions?.[0];
@@ -231,7 +272,9 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
             setTables(await b.getTables());
           }
           if (b.state === 'View' || b.state === 'FullScreen') {
-            let current = loaded;
+            let current = await rebindIfStale(b, loaded, optsRef.current.buildConditions, optsRef.current.autoPickStatus !== false);
+            if (disposer.disposed) return;
+            if (current !== loaded) setConfig(current);
             // 旧配置没有记录键字段:自动找表里的自动编号字段
             if (!current.keyFieldId && current.tableId) {
               try {
@@ -355,7 +398,10 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
         if (!disposer.disposed) setReady(true);
       } catch (e) {
         dlog('init: error', e);
-        if (!disposer.disposed) setError(String((e as Error)?.message ?? e));
+        if (!disposer.disposed) {
+          setError(String((e as Error)?.message ?? e));
+          setReady(true);
+        }
       }
     })();
     return () => disposer.dispose();
@@ -425,12 +471,13 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
 
   // 展示状态下告知仪表盘已渲染完成(自动化推送截图依赖它)
   useEffect(() => {
-    if (!bridge || isConfig || !ready || data === null) return;
+    // 出错时 data 仍是 null,也要通知宿主渲染结束,否则飞书会一直盖着加载动画
+    if (!bridge || isConfig || !ready || (data === null && !error)) return;
     const id = requestAnimationFrame(() => {
       setTimeout(() => bridge.setRendered().catch(() => {}), 300);
     });
     return () => cancelAnimationFrame(id);
-  }, [bridge, isConfig, ready, data]);
+  }, [bridge, isConfig, ready, data, error]);
 
   const update = useCallback((patch: Partial<C>) => {
     setSaved(false);

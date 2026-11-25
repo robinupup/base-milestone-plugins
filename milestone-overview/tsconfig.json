@@ -11,6 +11,7 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "allowImportingTsExtensions": true,
     "baseUrl": ".",
     "paths": { "@shared/*": ["../shared/src/*"], "@shared": ["../shared/src/index.ts"] }
   },
