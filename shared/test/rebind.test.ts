@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bindingsStale, clearBindings, pickTable } from '../src/rebind.ts';
+import { bindingsStale, clearBindings, fallbackKeyField, pickTable } from '../src/rebind.ts';
 import type { SourceConfig } from '../src/milestones.ts';
 
 const tables = [
@@ -50,6 +50,23 @@ test('clearBindings:换成新表并清掉旧字段,其它配置保留', () => {
   assert.deepEqual(next.flagValues, []);
   assert.equal(next.flagKeyword, '');
   assert.equal(next.showPercent, true);
+});
+
+test('fallbackKeyField:自动编号优先,否则用 index/编号', () => {
+  const fields = [
+    { id: 'name', name: '任务项', type: 1 },
+    { id: 'idx', name: 'index', type: 1 },
+    { id: 'auto', name: '编号', type: 1005 },
+  ];
+  assert.equal(fallbackKeyField(fields), 'auto');
+  assert.equal(
+    fallbackKeyField([
+      { id: 'name', name: '任务项', type: 1 },
+      { id: 'idx', name: 'index', type: 1 },
+    ]),
+    'idx',
+  );
+  assert.equal(fallbackKeyField([{ id: 'name', name: '任务项', type: 1 }]), undefined);
 });
 
 test('pickTable:优先名字像项目或任务的表', () => {

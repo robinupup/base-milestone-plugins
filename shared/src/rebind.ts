@@ -8,6 +8,19 @@ export function pickTable(list: TableInfo[]): TableInfo | undefined {
   return list.find((t) => /项目|任务|事件|计划|task|project|plan/i.test(t.name)) ?? list[0];
 }
 
+const AUTO_NUMBER = 1005;
+const TEXT = 1;
+/** 纯文本序号,值稳定、唯一,适合跟仪表盘筛选器对账;任务名里常有链接和提及,分组后对不齐 */
+const KEY_NAME = /^(index|编号|序号)$/i;
+
+/** 没有自动编号时,用名为 index / 编号 / 序号 的文本字段当记录键 */
+export function fallbackKeyField(fields: FieldInfo[]): string | undefined {
+  return (
+    fields.find((f) => f.type === AUTO_NUMBER)?.id ??
+    fields.find((f) => f.type === TEXT && KEY_NAME.test(f.name.trim()))?.id
+  );
+}
+
 /**
  * 配置指向的表或字段不在当前多维表格里。
  * fields 还没取到时只判断表;字段要全部对不上才算失效,避免误清用户改过的配置。

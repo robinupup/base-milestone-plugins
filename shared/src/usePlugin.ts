@@ -7,7 +7,7 @@ import type { Bridge, FieldInfo, PluginState, TableInfo, ThemeMode } from './bri
 import { buildLayout, COLUMN_ORDER } from './milestones';
 import { filterKeyOf } from './conditions';
 import { filterByKeys, rowKey, visibleKeys } from './records';
-import { bindingsStale, clearBindings, pickTable } from './rebind';
+import { bindingsStale, clearBindings, fallbackKeyField, pickTable } from './rebind';
 import type { ColumnKey, DataRows, SourceConfig } from './milestones';
 
 // SDK FieldType 数值
@@ -52,7 +52,9 @@ export function autoPick<C extends SourceConfig>(c: C, fields: FieldInfo[], opts
   take('flag', findField(fields, FLAG_TYPES, [/里程碑|milestone/i]));
   take(
     'date',
-    findField(fields, DATE_TYPES, [/完成时间|结束|截止|到期|deadline|end|due/i]) ??
+    // 计划完成优先于实际完成:未完成的里程碑往往还没有实际完成时间
+    findField(fields, DATE_TYPES, [/计划完成|计划结束|截止|到期|deadline|due/i]) ??
+      findField(fields, DATE_TYPES, [/完成时间|结束|end/i]) ??
       fields.find((f) => f.type === FT.DateTime),
   );
   take(
@@ -61,7 +63,7 @@ export function autoPick<C extends SourceConfig>(c: C, fields: FieldInfo[], opts
       findField(fields, NAME_TYPES, [/名称|标题|name|title/i], used) ??
       fields.find((f) => f.type === FT.Text && !used.includes(f.id)),
   );
-  if (!next.keyFieldId) next.keyFieldId = fields.find((f) => f.type === FT.AutoNumber)?.id;
+  if (!next.keyFieldId) next.keyFieldId = fallbackKeyField(fields);
   if (opts.status) take('status', findField(fields, STATUS_TYPES, [/状态|进度|进展|status|state/i], used));
   return next;
 }
@@ -275,11 +277,11 @@ export function usePlugin<C extends SourceConfig>(opts: Options<C>): PluginApi<C
             let current = await rebindIfStale(b, loaded, optsRef.current.buildConditions, optsRef.current.autoPickStatus !== false);
             if (disposer.disposed) return;
             if (current !== loaded) setConfig(current);
-            // 旧配置没有记录键字段:自动找表里的自动编号字段
+            // 没有记录键时,用自动编号或 index/编号。任务名里有链接和提及时,按名称对筛选结果会漏记
             if (!current.keyFieldId && current.tableId) {
               try {
                 const fl = await b.getFields(current.tableId);
-                const k = fl.find((f) => f.type === FT.AutoNumber)?.id;
+                const k = fallbackKeyField(fl);
                 if (k) current = { ...current, keyFieldId: k };
               } catch (e) {
                 dlog('resolve key field failed', String((e as Error)?.message ?? e));
